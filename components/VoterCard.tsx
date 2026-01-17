@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { VoterRecord } from '../types.ts';
 import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
 import { checkDuplicateAadhar } from '../services/api.ts';
+import { extractAadharNumber } from '../services/ocr.ts';
 import CameraModal from './CameraModal.tsx';
 
 interface VoterCardProps {
@@ -17,6 +18,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   const [localDob, setLocalDob] = useState(voter.dob || '');
   const [showCamera, setShowCamera] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
     setLocalAadhar(voter.aadhar || '');
@@ -27,8 +29,9 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, [field]: value });
   };
 
-  const handleAadharChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = formatAadhar(e.target.value);
+  const handleAadharChange = async (e: React.ChangeEvent<HTMLInputElement> | string) => {
+    const rawValue = typeof e === 'string' ? e : e.target.value;
+    const val = formatAadhar(rawValue);
     setLocalAadhar(val);
     
     const updated = { ...voter, aadhar: val };
@@ -49,8 +52,16 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, dob: val, calculatedAge: age });
   };
 
-  const handlePhotoCaptured = (base64: string) => {
+  const handlePhotoCaptured = async (base64: string) => {
     onChange({ ...voter, aadharPhoto: base64 });
+    
+    setIsExtracting(true);
+    const extracted = await extractAadharNumber(base64);
+    setIsExtracting(false);
+    
+    if (extracted) {
+      handleAadharChange(extracted);
+    }
   };
 
   return (
@@ -79,9 +90,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
       </div>
       
       <div className="p-5 space-y-5 flex-grow">
-        {/* Top Info Section with Photo */}
         <div className="flex gap-4 items-start">
-          {/* Photo Slot */}
           <div className="flex-shrink-0">
             <div 
               onClick={() => voter.aadharPhoto ? setIsZoomed(true) : setShowCamera(true)}
@@ -89,197 +98,98 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
             >
               {voter.aadharPhoto ? (
                 <>
-                  <img 
-                    src={voter.aadharPhoto} 
-                    alt="Aadhar" 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover/photo:scale-110"
-                  />
+                  <img src={voter.aadharPhoto} alt="Aadhar" className="w-full h-full object-cover transition-transform duration-500 group-hover/photo:scale-110" />
                   <div className="absolute inset-0 bg-indigo-900/40 opacity-0 group-hover/photo:opacity-100 flex flex-col items-center justify-center transition-opacity gap-1">
                     <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
-                    <span className="text-[8px] text-white font-bold uppercase tracking-widest">बड़ा देखें</span>
+                    <span className="text-[8px] text-white font-bold uppercase tracking-widest">क्रॉप्ड फोटो</span>
                   </div>
                 </>
               ) : (
                 <div className="text-center p-3">
                   <div className="w-10 h-10 bg-indigo-50 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-2 group-hover/photo:scale-110 transition-transform">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   </div>
-                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">आधार कार्ड<br/>स्कैन करें</p>
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">आधार कार्ड<br/>क्रॉप करें</p>
                 </div>
               )}
             </div>
             
             <div className="mt-3 flex gap-2">
-               <button 
-                onClick={() => setShowCamera(true)}
-                className="flex-1 py-1 bg-indigo-50 text-indigo-700 text-[9px] font-black rounded-lg hover:bg-indigo-100 transition-colors uppercase"
-               >
-                 {voter.aadharPhoto ? 'बदलें' : 'स्कैन'}
-               </button>
+               <button onClick={() => setShowCamera(true)} className="flex-1 py-1 bg-indigo-50 text-indigo-700 text-[9px] font-black rounded-lg hover:bg-indigo-100 transition-colors uppercase">स्कैन</button>
                {voter.aadharPhoto && (
-                 <button 
-                  onClick={() => handleFieldChange('aadharPhoto', '')}
-                  className="px-2 py-1 bg-red-50 text-red-500 text-[9px] font-black rounded-lg hover:bg-red-100 transition-colors"
-                 >
+                 <button onClick={() => handleFieldChange('aadharPhoto', '')} className="px-2 py-1 bg-red-50 text-red-500 text-[9px] font-black rounded-lg hover:bg-red-100 transition-colors">
                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                  </button>
                )}
             </div>
           </div>
 
-          {/* Details Section */}
           <div className="flex-grow space-y-4">
             <div>
               <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">निर्वाचक का नाम</label>
-              <input 
-                type="text" 
-                value={voter.name}
-                onChange={(e) => handleFieldChange('name', e.target.value)}
-                className="w-full px-4 py-2 text-sm font-bold text-gray-900 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none shadow-sm placeholder:text-gray-300"
-                placeholder="नाम लिखें"
-              />
+              <input type="text" value={voter.name} onChange={(e) => handleFieldChange('name', e.target.value)} className="w-full px-4 py-2 text-sm font-bold text-gray-900 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm" />
             </div>
             <div>
               <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">पिता/पति का नाम</label>
-              <input 
-                type="text" 
-                value={voter.relationName}
-                onChange={(e) => handleFieldChange('relationName', e.target.value)}
-                className="w-full px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all outline-none shadow-sm placeholder:text-gray-300"
-                placeholder="सम्बन्धी का नाम"
-              />
+              <input type="text" value={voter.relationName} onChange={(e) => handleFieldChange('relationName', e.target.value)} className="w-full px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm" />
             </div>
           </div>
         </div>
 
-        {/* Secondary Info Grid */}
         <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50">
           <div className="text-center">
             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">लिंग</label>
-            <select 
-              value={voter.gender}
-              onChange={(e) => handleFieldChange('gender', e.target.value)}
-              className="w-full text-xs font-bold bg-white border border-gray-100 rounded-lg py-1.5 outline-none text-center appearance-none shadow-sm"
-            >
-              <option value="पु">पु</option>
-              <option value="म">म</option>
-              <option value="अन्य">अन्य</option>
-            </select>
+            <select value={voter.gender} onChange={(e) => handleFieldChange('gender', e.target.value)} className="w-full text-xs font-bold bg-white border rounded-lg py-1.5 text-center appearance-none shadow-sm"><option value="पु">पु</option><option value="म">म</option><option value="अन्य">अन्य</option></select>
           </div>
           <div className="text-center">
             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">आयु</label>
-            <input 
-              type="number" 
-              value={voter.originalAge}
-              onChange={(e) => handleFieldChange('originalAge', e.target.value)}
-              className="w-full text-xs font-bold bg-white border border-gray-100 rounded-lg py-1.5 outline-none text-center shadow-sm"
-            />
+            <input type="number" value={voter.originalAge} onChange={(e) => handleFieldChange('originalAge', e.target.value)} className="w-full text-xs font-bold bg-white border rounded-lg py-1.5 text-center shadow-sm" />
           </div>
           <div className="text-center">
             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">बूथ/मकान</label>
-            <div className="w-full bg-white border border-gray-100 text-indigo-600 rounded-lg py-1.5 text-[10px] font-black shadow-sm">
-              {voter.booth}/{voter.houseNo}
-            </div>
+            <div className="w-full bg-white border text-indigo-600 rounded-lg py-1.5 text-[10px] font-black shadow-sm">{voter.booth}/{voter.houseNo}</div>
           </div>
         </div>
 
-        {/* Aadhar & DOB Footer */}
         <div className="space-y-4">
           <div className="relative">
             <label className="block text-[10px] font-bold text-gray-500 mb-1.5 px-1">आधार संख्या (12 अंक)</label>
-            <input 
-              type="text" 
-              value={localAadhar}
-              onChange={handleAadharChange}
-              placeholder="0000 0000 0000"
-              className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm font-black tracking-[0.2em] placeholder:text-gray-300 outline-none shadow-sm"
-            />
-            {localAadhar.length === 12 && (
-              <div className="absolute right-4 top-[38px] text-green-500">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-              </div>
-            )}
+            <div className="relative">
+              <input 
+                type="text" 
+                value={isExtracting ? "एक्सट्रैक्टिंग..." : localAadhar}
+                onChange={handleAadharChange}
+                disabled={isExtracting}
+                placeholder="0000 0000 0000"
+                className={`w-full px-5 py-3 border rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-black tracking-[0.2em] outline-none shadow-sm ${isExtracting ? 'bg-indigo-50 text-indigo-400 animate-pulse' : 'bg-gray-50 text-gray-900'}`}
+              />
+              {!isExtracting && localAadhar.length === 12 && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="flex-1">
               <label className="block text-[10px] font-bold text-gray-500 mb-1.5 px-1">जन्म तिथि</label>
-              <input 
-                type="date" 
-                value={localDob}
-                onChange={handleDobChange}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 text-[11px] font-bold outline-none shadow-sm"
-              />
+              <input type="date" value={localDob} onChange={handleDobChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 text-[11px] font-bold outline-none shadow-sm" />
             </div>
-            <div className="bg-indigo-600 px-4 py-2 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-indigo-600/20 ring-4 ring-indigo-50 transition-transform active:scale-95">
+            <div className="bg-indigo-600 px-4 py-2 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-indigo-600/20 ring-4 ring-indigo-50">
               <span className="text-[8px] font-black text-indigo-200 uppercase tracking-widest">2026 उम्र</span>
-              <span className="text-xl font-black text-white leading-none mt-1">{voter.calculatedAge || '—'}</span>
+              <span className="text-xl font-black text-white mt-1">{voter.calculatedAge || '—'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {showCamera && (
-        <CameraModal 
-          onCapture={handlePhotoCaptured} 
-          onClose={() => setShowCamera(false)} 
-        />
-      )}
+      {showCamera && <CameraModal onCapture={handlePhotoCaptured} onClose={() => setShowCamera(false)} />}
 
-      {/* Enlarged Image Preview Modal */}
       {isZoomed && voter.aadharPhoto && (
-        <div 
-          className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in duration-300"
-          onClick={() => setIsZoomed(false)}
-        >
-          {/* Top Preview Bar */}
-          <div className="absolute top-0 inset-x-0 p-8 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-10">
-             <div className="flex items-center gap-4">
-               <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-2xl">{voter.voterNo}</div>
-               <div>
-                  <h4 className="text-white font-black uppercase text-base tracking-wide">{voter.name || 'निर्वाचक'}</h4>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <p className="text-indigo-400 text-[10px] font-black tracking-[0.2em] uppercase">आधार कार्ड प्रीव्यू</p>
-                  </div>
-               </div>
-             </div>
-             <button className="bg-white/10 p-4 rounded-full text-white hover:bg-white/20 transition-all active:scale-90 shadow-xl border border-white/10">
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-             </button>
-          </div>
-          
-          <div className="relative w-full max-w-4xl flex items-center justify-center group/zoom">
-            <img 
-              src={voter.aadharPhoto} 
-              alt="Enlarged Aadhar" 
-              className="max-w-full max-h-[75vh] rounded-3xl shadow-[0_0_100px_rgba(79,70,229,0.3)] border-2 border-white/20 object-contain transition-transform duration-500 group-hover/zoom:scale-[1.02]"
-              onClick={(e) => e.stopPropagation()}
-            />
-            {/* Overlay Info */}
-            <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-indigo-600 px-6 py-2 rounded-full shadow-2xl border border-white/20 whitespace-nowrap">
-              <span className="text-white font-black text-[10px] uppercase tracking-widest">
-                Aadhar No: {voter.aadhar ? voter.aadhar.replace(/(\d{4})/g, '$1 ').trim() : 'N/A'}
-              </span>
-            </div>
-          </div>
-          
-          <div className="mt-16 flex flex-col items-center gap-4">
-             <div className="bg-white/5 backdrop-blur-md px-10 py-4 rounded-full border border-white/10 text-center animate-bounce">
-                <p className="text-white font-black text-[10px] tracking-[0.3em] uppercase opacity-80">कहीं भी क्लिक करके बंद करें</p>
-             </div>
-             <div className="flex gap-4">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setShowCamera(true); setIsZoomed(false); }}
-                  className="px-6 py-3 bg-white text-indigo-900 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95"
-                >
-                  Retake Photo
-                </button>
-             </div>
-          </div>
+        <div className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4" onClick={() => setIsZoomed(false)}>
+          <img src={voter.aadharPhoto} alt="Cropped Aadhar" className="max-w-full max-h-[75vh] rounded-3xl shadow-2xl border-2 border-white/20 object-contain" />
+          <div className="mt-8 bg-indigo-600 px-8 py-3 rounded-full text-white font-black text-xs uppercase tracking-widest">क्रॉप्ड आधार कार्ड</div>
         </div>
       )}
     </div>
