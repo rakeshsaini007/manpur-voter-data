@@ -12,6 +12,7 @@
 
 const SHEET_NAME = 'Sheet1'; 
 const DELETED_SHEET_NAME = 'Deleted';
+const NEW_VOTERS_SHEET_NAME = 'NewVoters';
 
 function doGet(e) {
   const action = e.parameter.action;
@@ -43,7 +44,8 @@ function doPost(e) {
 }
 
 function handleGetMetadata() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) return createJsonResponse({ success: false, error: 'Sheet not found' });
   
   const data = sheet.getDataRange().getValues();
@@ -68,7 +70,8 @@ function handleGetMetadata() {
 }
 
 function handleSearch(booth, house) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   const results = [];
   
@@ -97,7 +100,8 @@ function handleSearch(booth, house) {
 function handleSearchByName(query) {
   if (!query) return createJsonResponse({ success: true, data: [] });
   const q = String(query).toLowerCase().trim();
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   const results = [];
   
@@ -127,7 +131,8 @@ function handleSearchByName(query) {
 }
 
 function handleCheckAadhar(aadhar, currentVoterNo) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   
   for (let i = 1; i < data.length; i++) {
@@ -148,8 +153,16 @@ function handleCheckAadhar(aadhar, currentVoterNo) {
 }
 
 function handleSave(voters) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
+  
+  // Prepare NewVoters sheet
+  let newVotersSheet = ss.getSheetByName(NEW_VOTERS_SHEET_NAME);
+  if (!newVotersSheet) {
+    newVotersSheet = ss.insertSheet(NEW_VOTERS_SHEET_NAME);
+    newVotersSheet.appendRow([...dataRows[0], 'Added On']); // Use same headers as main sheet
+  }
   
   voters.forEach(v => {
     let rowIndex = -1;
@@ -160,18 +173,18 @@ function handleSave(voters) {
       }
     }
     
+    const rowData = [
+      v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge
+    ];
+
     if (rowIndex > 0) {
-      sheet.getRange(rowIndex, 4).setValue(v.name);
-      sheet.getRange(rowIndex, 5).setValue(v.relationName);
-      sheet.getRange(rowIndex, 6).setValue(v.gender);
-      sheet.getRange(rowIndex, 7).setValue(v.originalAge);
-      sheet.getRange(rowIndex, 8).setValue(v.aadhar);
-      sheet.getRange(rowIndex, 9).setValue(v.dob);
-      sheet.getRange(rowIndex, 10).setValue(v.calculatedAge);
+      // Update existing in Sheet1
+      sheet.getRange(rowIndex, 1, 1, 10).setValues([rowData]);
     } else {
-      sheet.appendRow([
-        v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge
-      ]);
+      // Add new to Sheet1
+      sheet.appendRow(rowData);
+      // Also add to NewVoters sheet
+      newVotersSheet.appendRow([...rowData, new Date()]);
     }
   });
   
