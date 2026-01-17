@@ -1,6 +1,7 @@
 
 /**
  * GOOGLE APPS SCRIPT BACKEND
+ * Use this version to ensure photos are saved correctly.
  */
 
 const SHEET_NAME = 'Sheet1'; 
@@ -9,28 +10,18 @@ const NEW_VOTERS_SHEET_NAME = 'NewVoters';
 
 function doGet(e) {
   const action = e.parameter.action;
-  
-  if (action === 'search') {
-    return handleSearch(e.parameter.booth, e.parameter.house);
-  } else if (action === 'searchByName') {
-    return handleSearchByName(e.parameter.query);
-  } else if (action === 'checkAadhar') {
-    return handleCheckAadhar(e.parameter.aadhar, e.parameter.voterNo);
-  } else if (action === 'getMetadata') {
-    return handleGetMetadata();
-  }
-  
+  if (action === 'search') return handleSearch(e.parameter.booth, e.parameter.house);
+  if (action === 'searchByName') return handleSearchByName(e.parameter.query);
+  if (action === 'checkAadhar') return handleCheckAadhar(e.parameter.aadhar, e.parameter.voterNo);
+  if (action === 'getMetadata') return handleGetMetadata();
   return createJsonResponse({ success: false, error: 'Invalid Action' });
 }
 
 function doPost(e) {
   try {
     const requestData = JSON.parse(e.postData.contents);
-    if (requestData.action === 'save') {
-      return handleSave(requestData.data);
-    } else if (requestData.action === 'delete') {
-      return handleDelete(requestData.booth, requestData.voterNo, requestData.reason);
-    }
+    if (requestData.action === 'save') return handleSave(requestData.data);
+    if (requestData.action === 'delete') return handleDelete(requestData.booth, requestData.voterNo, requestData.reason);
   } catch (err) {
     return createJsonResponse({ success: false, error: err.toString() });
   }
@@ -40,10 +31,8 @@ function handleGetMetadata() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) return createJsonResponse({ success: false, error: 'Sheet1 not found' });
-  
   const data = sheet.getDataRange().getValues();
   const boothMap = {};
-  
   for (let i = 1; i < data.length; i++) {
     const booth = String(data[i][0]).trim();
     const house = String(data[i][2]).trim();
@@ -52,13 +41,9 @@ function handleGetMetadata() {
       boothMap[booth].add(house);
     }
   }
-  
   const formattedMap = {};
   const booths = Object.keys(boothMap).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
-  booths.forEach(b => {
-    formattedMap[b] = Array.from(boothMap[b]).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
-  });
-  
+  booths.forEach(b => { formattedMap[b] = Array.from(boothMap[b]).sort((a,b) => a.localeCompare(b, undefined, {numeric: true})); });
   return createJsonResponse({ success: true, booths, houseMap: formattedMap });
 }
 
@@ -67,14 +52,12 @@ function handleSearch(booth, house) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   const results = [];
-  
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (String(row[0]).trim() === String(booth).trim() && String(row[2]).trim() === String(house).trim()) {
       results.push(mapRowToVoter(row, i + 1));
     }
   }
-  
   return createJsonResponse({ success: true, data: results });
 }
 
@@ -85,17 +68,12 @@ function handleSearchByName(query) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   const results = [];
-  
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     const name = String(row[3]).toLowerCase();
-    const relationName = String(row[4]).toLowerCase();
-    
-    if (name.indexOf(q) !== -1 || relationName.indexOf(q) !== -1) {
-      results.push(mapRowToVoter(row, i + 1));
-    }
+    const rel = String(row[4]).toLowerCase();
+    if (name.indexOf(q) !== -1 || rel.indexOf(q) !== -1) results.push(mapRowToVoter(row, i + 1));
   }
-  
   return createJsonResponse({ success: true, data: results });
 }
 
@@ -120,14 +98,9 @@ function handleCheckAadhar(aadhar, currentVoterNo) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
-  
   for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    if (String(row[7]) === String(aadhar) && String(row[1]) !== String(currentVoterNo)) {
-      return createJsonResponse({
-        isDuplicate: true,
-        member: mapRowToVoter(row, i + 1)
-      });
+    if (String(data[i][7]) === String(aadhar) && String(data[i][1]) !== String(currentVoterNo)) {
+      return createJsonResponse({ isDuplicate: true, member: mapRowToVoter(data[i], i + 1) });
     }
   }
   return createJsonResponse({ isDuplicate: false });
@@ -138,18 +111,15 @@ function handleSave(voters) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
   
-  // Ensure Sheet1 has the photo header if it's missing
-  if (dataRows[0].length < 11) {
+  // Ensure we have at least 11 columns for the photo
+  if (sheet.getLastColumn() < 11) {
     sheet.getRange(1, 11).setValue('Photo');
   }
 
-  // Ensure NewVoters sheet exists
   let newVotersSheet = ss.getSheetByName(NEW_VOTERS_SHEET_NAME);
   if (!newVotersSheet) {
     newVotersSheet = ss.insertSheet(NEW_VOTERS_SHEET_NAME);
-    const headers = [...dataRows[0]];
-    if (headers.length < 11) headers[10] = 'Photo';
-    headers[11] = 'Added On'; 
+    const headers = ["Booth", "VoterNo", "HouseNo", "Name", "Relation", "Gender", "Age", "Aadhar", "DOB", "CalcAge", "Photo", "AddedOn"];
     newVotersSheet.appendRow(headers);
   }
   
@@ -162,8 +132,7 @@ function handleSave(voters) {
       }
     }
     
-    // Google Sheets cell limit is 50,000 characters.
-    // We trim the photo if somehow it exceeds this to prevent script error.
+    // Safety check for Sheets cell character limit
     let photoData = v.aadharPhoto || '';
     if (photoData.length > 50000) {
       photoData = photoData.substring(0, 49990); 
@@ -174,36 +143,28 @@ function handleSave(voters) {
     ];
 
     if (rowIndex > 0) {
-      // Update existing
       sheet.getRange(rowIndex, 1, 1, 11).setValues([rowValues]);
     } else {
-      // Append new
       sheet.appendRow(rowValues);
-      const newVoterRow = [...rowValues];
-      newVoterRow[11] = new Date(); 
-      newVotersSheet.appendRow(newVoterRow);
+      const logRow = [...rowValues];
+      logRow[11] = new Date(); 
+      newVotersSheet.appendRow(logRow);
     }
   });
   
-  return createJsonResponse({ success: true, message: 'डेटा सफलतापूर्वक सहेजा गया' });
+  return createJsonResponse({ success: true, message: 'सफलतापूर्वक सहेजा गया' });
 }
 
 function handleDelete(booth, voterNo, reason) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
-  
   let deletedSheet = ss.getSheetByName(DELETED_SHEET_NAME);
   if (!deletedSheet) {
     deletedSheet = ss.insertSheet(DELETED_SHEET_NAME);
-    const headers = [...dataRows[0]];
-    while(headers.length < 11) headers.push('');
-    headers[10] = 'Photo';
-    headers[11] = 'Deletion Reason';
-    headers[12] = 'Deletion Time';
+    const headers = ["Booth", "VoterNo", "HouseNo", "Name", "Relation", "Gender", "Age", "Aadhar", "DOB", "CalcAge", "Photo", "Reason", "Time"];
     deletedSheet.appendRow(headers);
   }
-  
   let rowIndex = -1;
   for (let i = 1; i < dataRows.length; i++) {
     if (String(dataRows[i][0]) === String(booth) && String(dataRows[i][1]) === String(voterNo)) {
@@ -211,22 +172,18 @@ function handleDelete(booth, voterNo, reason) {
       break;
     }
   }
-  
   if (rowIndex > 0) {
     const rowValues = [...dataRows[rowIndex - 1]];
-    // Ensure rowValues has enough length for photo column
     while(rowValues.length < 11) rowValues.push('');
     rowValues[11] = reason || 'N/A';
     rowValues[12] = new Date();
     deletedSheet.appendRow(rowValues);
     sheet.deleteRow(rowIndex);
-    return createJsonResponse({ success: true, message: 'सदस्य को सफलतापूर्वक हटाया गया' });
+    return createJsonResponse({ success: true, message: 'हटाया गया' });
   }
-  
-  return createJsonResponse({ success: false, message: 'सदस्य नहीं मिला' });
+  return createJsonResponse({ success: false, message: 'नहीं मिला' });
 }
 
 function createJsonResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
 }
