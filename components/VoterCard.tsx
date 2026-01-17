@@ -29,20 +29,24 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, [field]: value });
   };
 
-  const handleAadharChange = async (e: React.ChangeEvent<HTMLInputElement> | string) => {
-    const rawValue = typeof e === 'string' ? e : e.target.value;
-    const val = formatAadhar(rawValue);
-    setLocalAadhar(val);
+  // Internal helper to handle Aadhar updates correctly on a specific voter object
+  const performAadharUpdate = async (val: string, currentVoter: VoterRecord) => {
+    const cleanedVal = formatAadhar(val);
+    setLocalAadhar(cleanedVal);
     
-    const updated = { ...voter, aadhar: val };
+    const updated = { ...currentVoter, aadhar: cleanedVal };
     onChange(updated);
 
-    if (val.length === 12) {
-      const check = await checkDuplicateAadhar(val, voter.voterNo);
+    if (cleanedVal.length === 12) {
+      const check = await checkDuplicateAadhar(cleanedVal, currentVoter.voterNo);
       if (check.isDuplicate) {
         onDuplicateFound(check.member);
       }
     }
+  };
+
+  const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    performAadharUpdate(e.target.value, voter);
   };
 
   const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,14 +57,24 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   };
 
   const handlePhotoCaptured = async (base64: string) => {
-    onChange({ ...voter, aadharPhoto: base64 });
+    // 1. Create the voter object with the new photo
+    const voterWithPhoto = { ...voter, aadharPhoto: base64 };
+    
+    // 2. Immediately notify parent of the photo update so it shows in placeholder
+    onChange(voterWithPhoto);
     
     setIsExtracting(true);
-    const extracted = await extractAadharNumber(base64);
-    setIsExtracting(false);
-    
-    if (extracted) {
-      handleAadharChange(extracted);
+    try {
+      const extracted = await extractAadharNumber(base64);
+      if (extracted) {
+        // 3. Update the Aadhar number on top of the voterWithPhoto object 
+        // to prevent overwriting the photo
+        await performAadharUpdate(extracted, voterWithPhoto);
+      }
+    } catch (err) {
+      console.error("Extraction failed", err);
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -94,7 +108,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
           <div className="flex-shrink-0">
             <div 
               onClick={() => voter.aadharPhoto ? setIsZoomed(true) : setShowCamera(true)}
-              className={`relative w-28 h-36 rounded-2xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center cursor-pointer shadow-inner group/photo ${voter.aadharPhoto ? 'border-indigo-100' : 'border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100'}`}
+              className={`relative w-28 h-36 rounded-2xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center cursor-pointer shadow-inner group/photo ${voter.aadharPhoto ? 'border-indigo-100 ring-2 ring-indigo-50' : 'border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100'}`}
             >
               {voter.aadharPhoto ? (
                 <>

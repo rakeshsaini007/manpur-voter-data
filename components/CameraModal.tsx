@@ -80,8 +80,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         const sx = (vWidth - size) / 2;
         const sy = (vHeight - size) / 2;
 
-        // Optimized target size for Google Sheets (Safe under 50k chars)
-        const targetSize = 400; 
+        // Further optimized target size (320px) to ensure Base64 is well under 50k characters
+        const targetSize = 320; 
         canvas.width = targetSize;
         canvas.height = targetSize;
 
@@ -92,8 +92,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
 
         context.drawImage(video, sx, sy, size, size, 0, 0, targetSize, targetSize);
         
-        // Lower quality (0.4) to guarantee it fits in one Sheet cell
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+        // High compression (0.35) to keep data size tiny
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.35);
         
         const shutter = document.createElement('div');
         shutter.className = 'fixed inset-0 bg-white z-[200] opacity-90';
