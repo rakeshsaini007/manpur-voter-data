@@ -27,8 +27,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: facingMode, 
-          width: { ideal: 1920 }, 
-          height: { ideal: 1080 } 
+          width: { ideal: 1280 }, 
+          height: { ideal: 720 } 
         } 
       });
       setStream(mediaStream);
@@ -36,8 +36,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         videoRef.current.srcObject = mediaStream;
       }
       setError(null);
-      // Start auto-capture countdown after a brief stabilization delay
-      setTimeout(() => setCountdown(3), 1000);
+      // Auto-capture timer starts after a brief pause
+      setTimeout(() => setCountdown(3), 800);
     } catch (err) {
       console.error("Camera error:", err);
       setError("कैमरा शुरू करने में विफल। कृपया अनुमति जांचें।");
@@ -72,7 +72,9 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
       if (context) {
-        const targetWidth = 1024;
+        // Optimized for Google Sheets cell limit (50k chars)
+        // Width 600px + 0.35 quality usually results in ~30-40k chars Base64
+        const targetWidth = 600;
         const targetHeight = (video.videoHeight / video.videoWidth) * targetWidth;
         canvas.width = targetWidth;
         canvas.height = targetHeight;
@@ -83,25 +85,26 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         }
 
         context.drawImage(video, 0, 0, targetWidth, targetHeight);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
         
-        // Visual shutter flash effect
+        // Low quality is mandatory to fit image data in a single Google Sheet cell
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.35);
+        
+        // shutter flash
         const shutter = document.createElement('div');
-        shutter.className = 'fixed inset-0 bg-white z-[200] animate-pulse';
+        shutter.className = 'fixed inset-0 bg-white z-[200] opacity-80';
         document.body.appendChild(shutter);
         
         setTimeout(() => {
           document.body.removeChild(shutter);
           onCapture(dataUrl);
           onClose();
-        }, 150);
+        }, 100);
       }
     }
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-black overflow-hidden">
-      {/* Top Bar */}
       <div className="safe-top bg-black/60 backdrop-blur-lg px-4 py-4 flex justify-between items-center z-20">
         <button 
           onClick={onClose} 
@@ -112,7 +115,7 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
           </svg>
         </button>
         <div className="flex flex-col items-center">
-          <h3 className="text-white font-bold text-xs tracking-widest uppercase">Auto Scanning</h3>
+          <h3 className="text-white font-bold text-xs tracking-widest uppercase">Smart Scanner</h3>
           {countdown !== null && countdown > 0 && (
             <p className="text-indigo-400 text-[10px] font-black animate-pulse">Capturing in {countdown}s...</p>
           )}
@@ -127,7 +130,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         </button>
       </div>
 
-      {/* Viewfinder Area */}
       <div className="relative flex-grow flex items-center justify-center">
         {error ? (
           <div className="text-white text-center p-8 max-w-xs z-10">
@@ -146,53 +148,45 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
           />
         )}
         
-        {/* Mobile Guide Overlay */}
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 sm:p-12 z-10">
-           <div className={`w-full max-w-md aspect-[1.586/1] border-2 transition-all duration-500 rounded-2xl shadow-[0_0_0_2000px_rgba(0,0,0,0.7)] flex items-center justify-center relative overflow-hidden ${countdown === 0 ? 'border-green-500 scale-105' : 'border-indigo-400/50'}`}>
-              
-              {/* Corner Accents */}
-              <div className={`absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
-              <div className={`absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
-              <div className={`absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
-              <div className={`absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
-              
-              {/* Scanning Line Animation */}
-              <div className="absolute inset-x-0 h-0.5 bg-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.8)] animate-[scan_2s_ease-in-out_infinite]"></div>
-
-              <div className="flex flex-col items-center gap-3 opacity-40">
-                <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 z-10">
+           <div className={`w-full max-w-md aspect-[1.586/1] border-2 transition-all duration-500 rounded-2xl shadow-[0_0_0_2000px_rgba(0,0,0,0.75)] flex items-center justify-center relative overflow-hidden ${countdown === 0 ? 'border-green-500 scale-105 shadow-[0_0_40px_rgba(34,197,94,0.3)]' : 'border-indigo-400/40'}`}>
+              <div className={`absolute top-0 left-0 w-12 h-12 border-t-4 border-l-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
+              <div className={`absolute top-0 right-0 w-12 h-12 border-t-4 border-r-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
+              <div className={`absolute bottom-0 left-0 w-12 h-12 border-b-4 border-l-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
+              <div className={`absolute bottom-0 right-0 w-12 h-12 border-b-4 border-r-4 transition-colors duration-300 ${countdown === 0 ? 'border-green-500' : 'border-indigo-500'}`}></div>
+              <div className="absolute inset-x-0 h-1 bg-indigo-500/40 shadow-[0_0_20px_rgba(99,102,241,0.6)] animate-[scan_2.5s_ease-in-out_infinite]"></div>
+              <div className="flex flex-col items-center gap-3 opacity-30">
+                <svg className="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                 </svg>
-                <span className="text-white text-[10px] font-black uppercase tracking-[0.3em]">Hold Still</span>
+                <span className="text-white text-[9px] font-black uppercase tracking-[0.4em]">Stabilizing...</span>
               </div>
            </div>
            
-           <div className="mt-12 bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 text-center animate-bounce">
-              <p className="text-white text-sm font-bold">आधार कार्ड को घेरे के अंदर रखें</p>
-              <p className="text-indigo-300 text-[10px] font-medium uppercase tracking-widest mt-1">स्वतः फोटो ली जाएगी</p>
+           <div className="mt-16 bg-black/60 backdrop-blur-xl px-8 py-4 rounded-3xl border border-white/10 text-center animate-bounce shadow-2xl">
+              <p className="text-white text-base font-black tracking-wide">आधार कार्ड यहाँ रखें</p>
+              <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-1.5">Auto-capture Active</p>
            </div>
         </div>
 
-        {/* Shutter Animation Overlay */}
         {isCapturing && (
-          <div className="absolute inset-0 bg-white z-[50] animate-ping"></div>
+          <div className="absolute inset-0 bg-white z-[50] opacity-100"></div>
         )}
       </div>
 
-      {/* Manual Button (as fallback) */}
       <div className="safe-bottom pb-12 pt-6 bg-black flex justify-center items-center">
         <button 
           onClick={capturePhoto}
           disabled={!!error || isCapturing}
           className="group relative flex items-center justify-center"
         >
-          <div className={`absolute inset-0 rounded-full bg-indigo-500/20 blur-xl transition-all duration-500 ${countdown === 0 ? 'scale-150 opacity-100' : 'scale-100 opacity-0'}`}></div>
-          <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${countdown === 0 ? 'border-green-500 scale-110' : 'border-white/30'}`}>
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${countdown === 0 ? 'bg-green-500' : 'bg-white'}`}>
+          <div className={`absolute inset-0 rounded-full bg-indigo-500/30 blur-2xl transition-all duration-500 ${countdown === 0 ? 'scale-150 opacity-100' : 'scale-100 opacity-0'}`}></div>
+          <div className={`w-24 h-24 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${countdown === 0 ? 'border-green-500 scale-110 shadow-[0_0_30px_rgba(34,197,94,0.4)]' : 'border-white/20'}`}>
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${countdown === 0 ? 'bg-green-500' : 'bg-white shadow-xl'}`}>
                {countdown !== null && countdown > 0 ? (
-                 <span className="text-indigo-900 font-black text-2xl">{countdown}</span>
+                 <span className="text-indigo-950 font-black text-3xl">{countdown}</span>
                ) : (
-                 <div className="w-14 h-14 rounded-full border-2 border-black/10" />
+                 <div className="w-16 h-16 rounded-full border-2 border-black/5" />
                )}
             </div>
           </div>
@@ -202,8 +196,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes scan {
           0%, 100% { top: 0%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
+          15% { opacity: 1; }
+          85% { opacity: 1; }
           100% { top: 100%; opacity: 0; }
         }
       `}} />

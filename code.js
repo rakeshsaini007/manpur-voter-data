@@ -101,13 +101,13 @@ function handleSearchByName(query) {
 
 function mapRowToVoter(row, rowIdx) {
   return {
-    booth: String(row[0]),
-    voterNo: String(row[1]),
-    houseNo: String(row[2]),
-    name: String(row[3]),
-    relationName: String(row[4]),
-    gender: String(row[5]),
-    originalAge: String(row[6]),
+    booth: String(row[0] || ''),
+    voterNo: String(row[1] || ''),
+    houseNo: String(row[2] || ''),
+    name: String(row[3] || ''),
+    relationName: String(row[4] || ''),
+    gender: String(row[5] || ''),
+    originalAge: String(row[6] || ''),
     aadhar: String(row[7] || ''),
     dob: String(row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5:30", "yyyy-MM-dd") : ''),
     calculatedAge: String(row[9] || ''),
@@ -138,6 +138,11 @@ function handleSave(voters) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
   
+  // Ensure Sheet1 has the photo header if it's missing
+  if (dataRows[0].length < 11) {
+    sheet.getRange(1, 11).setValue('Photo');
+  }
+
   // Ensure NewVoters sheet exists
   let newVotersSheet = ss.getSheetByName(NEW_VOTERS_SHEET_NAME);
   if (!newVotersSheet) {
@@ -157,13 +162,22 @@ function handleSave(voters) {
       }
     }
     
+    // Google Sheets cell limit is 50,000 characters.
+    // We trim the photo if somehow it exceeds this to prevent script error.
+    let photoData = v.aadharPhoto || '';
+    if (photoData.length > 50000) {
+      photoData = photoData.substring(0, 49990); 
+    }
+
     const rowValues = [
-      v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge, v.aadharPhoto || ''
+      v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge, photoData
     ];
 
     if (rowIndex > 0) {
+      // Update existing
       sheet.getRange(rowIndex, 1, 1, 11).setValues([rowValues]);
     } else {
+      // Append new
       sheet.appendRow(rowValues);
       const newVoterRow = [...rowValues];
       newVoterRow[11] = new Date(); 
@@ -183,7 +197,8 @@ function handleDelete(booth, voterNo, reason) {
   if (!deletedSheet) {
     deletedSheet = ss.insertSheet(DELETED_SHEET_NAME);
     const headers = [...dataRows[0]];
-    if (headers.length < 11) headers[10] = 'Photo';
+    while(headers.length < 11) headers.push('');
+    headers[10] = 'Photo';
     headers[11] = 'Deletion Reason';
     headers[12] = 'Deletion Time';
     deletedSheet.appendRow(headers);
@@ -199,7 +214,7 @@ function handleDelete(booth, voterNo, reason) {
   
   if (rowIndex > 0) {
     const rowValues = [...dataRows[rowIndex - 1]];
-    // Ensure rowValues has enough length
+    // Ensure rowValues has enough length for photo column
     while(rowValues.length < 11) rowValues.push('');
     rowValues[11] = reason || 'N/A';
     rowValues[12] = new Date();
