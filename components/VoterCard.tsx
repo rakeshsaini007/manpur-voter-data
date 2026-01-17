@@ -7,18 +7,19 @@ import { checkDuplicateAadhar } from '../services/api.ts';
 interface VoterCardProps {
   voter: VoterRecord;
   onChange: (updatedVoter: VoterRecord) => void;
+  onDelete: (booth: string, voterNo: string) => void;
   onDuplicateFound: (member: VoterRecord) => void;
 }
 
-const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDuplicateFound }) => {
+const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDelete, onDuplicateFound }) => {
   const [localAadhar, setLocalAadhar] = useState(voter.aadhar || '');
   const [localDob, setLocalDob] = useState(voter.dob || '');
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Update local state if voter object changes externally
   useEffect(() => {
     setLocalAadhar(voter.aadhar || '');
     setLocalDob(voter.dob || '');
-  }, [voter.voterNo]);
+  }, [voter.voterNo, voter.aadhar, voter.dob]);
 
   const handleFieldChange = (field: keyof VoterRecord, value: string) => {
     onChange({ ...voter, [field]: value });
@@ -46,13 +47,32 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDuplicateFound
     onChange({ ...voter, dob: val, calculatedAge: age });
   };
 
+  const handleDeleteClick = () => {
+    if (window.confirm(`क्या आप वाकई सदस्य "${voter.name || 'बेनाम'}" को हटाना चाहते हैं?`)) {
+      setIsDeleting(true);
+      onDelete(voter.booth, voter.voterNo);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
+    <div className={`bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-all duration-300 flex flex-col h-full relative ${isDeleting ? 'opacity-50 grayscale' : ''}`}>
       <div className="bg-indigo-600 px-4 py-2 flex justify-between items-center">
         <span className="text-white font-bold text-sm">मतदाता क्रमांक: {voter.voterNo}</span>
-        <span className="bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">
-          {voter.isNew ? 'नया सदस्य' : 'मौजूदा सदस्य'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">
+            {voter.isNew ? 'नया सदस्य' : 'मौजूदा सदस्य'}
+          </span>
+          <button 
+            onClick={handleDeleteClick}
+            disabled={isDeleting}
+            className="text-white hover:text-red-200 transition-colors p-1"
+            title="हटाएं"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
       </div>
       
       <div className="p-5 space-y-4 flex-grow">

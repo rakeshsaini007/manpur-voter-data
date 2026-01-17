@@ -11,12 +11,15 @@
  */
 
 const SHEET_NAME = 'Sheet1'; 
+const DELETED_SHEET_NAME = 'Deleted';
 
 function doGet(e) {
   const action = e.parameter.action;
   
   if (action === 'search') {
     return handleSearch(e.parameter.booth, e.parameter.house);
+  } else if (action === 'searchByName') {
+    return handleSearchByName(e.parameter.query);
   } else if (action === 'checkAadhar') {
     return handleCheckAadhar(e.parameter.aadhar, e.parameter.voterNo);
   } else if (action === 'getMetadata') {
@@ -31,6 +34,8 @@ function doPost(e) {
     const requestData = JSON.parse(e.postData.contents);
     if (requestData.action === 'save') {
       return handleSave(requestData.data);
+    } else if (requestData.action === 'delete') {
+      return handleDelete(requestData.booth, requestData.voterNo);
     }
   } catch (err) {
     return createJsonResponse({ success: false, error: err.toString() });
@@ -39,6 +44,8 @@ function doPost(e) {
 
 function handleGetMetadata() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) return createJsonResponse({ success: false, error: 'Sheet not found' });
+  
   const data = sheet.getDataRange().getValues();
   const boothMap = {}; // { booth: [house1, house2] }
   
@@ -68,6 +75,38 @@ function handleSearch(booth, house) {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (String(row[0]).trim() === String(booth).trim() && String(row[2]).trim() === String(house).trim()) {
+      results.push({
+        booth: String(row[0]),
+        voterNo: String(row[1]),
+        houseNo: String(row[2]),
+        name: String(row[3]),
+        relationName: String(row[4]),
+        gender: String(row[5]),
+        originalAge: String(row[6]),
+        aadhar: String(row[7] || ''),
+        dob: String(row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5:30", "yyyy-MM-dd") : ''),
+        calculatedAge: String(row[9] || ''),
+        rowIdx: i + 1
+      });
+    }
+  }
+  
+  return createJsonResponse({ success: true, data: results });
+}
+
+function handleSearchByName(query) {
+  if (!query) return createJsonResponse({ success: true, data: [] });
+  const q = String(query).toLowerCase().trim();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  const results = [];
+  
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const name = String(row[3]).toLowerCase();
+    const relationName = String(row[4]).toLowerCase();
+    
+    if (name.indexOf(q) !== -1 || relationName.indexOf(q) !== -1) {
       results.push({
         booth: String(row[0]),
         voterNo: String(row[1]),
@@ -122,7 +161,6 @@ function handleSave(voters) {
     }
     
     if (rowIndex > 0) {
-      // Update existing - Added Name, Relation, Gender, Age
       sheet.getRange(rowIndex, 4).setValue(v.name);
       sheet.getRange(rowIndex, 5).setValue(v.relationName);
       sheet.getRange(rowIndex, 6).setValue(v.gender);
@@ -131,7 +169,6 @@ function handleSave(voters) {
       sheet.getRange(rowIndex, 9).setValue(v.dob);
       sheet.getRange(rowIndex, 10).setValue(v.calculatedAge);
     } else {
-      // Add new
       sheet.appendRow([
         v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge
       ]);
@@ -139,6 +176,35 @@ function handleSave(voters) {
   });
   
   return createJsonResponse({ success: true, message: 'Saved successfully' });
+}
+
+function handleDelete(booth, voterNo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_NAME);
+  const dataRows = sheet.getDataRange().getValues();
+  
+  let deletedSheet = ss.getSheetByName(DELETED_SHEET_NAME);
+  if (!deletedSheet) {
+    deletedSheet = ss.insertSheet(DELETED_SHEET_NAME);
+    deletedSheet.appendRow(dataRows[0]); // Add headers
+  }
+  
+  let rowIndex = -1;
+  for (let i = 1; i < dataRows.length; i++) {
+    if (String(dataRows[i][0]) === String(booth) && String(dataRows[i][1]) === String(voterNo)) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  
+  if (rowIndex > 0) {
+    const rowValues = dataRows[rowIndex - 1];
+    deletedSheet.appendRow(rowValues);
+    sheet.deleteRow(rowIndex);
+    return createJsonResponse({ success: true, message: 'सदस्य को सफलतापूर्वक हटाया गया' });
+  }
+  
+  return createJsonResponse({ success: false, message: 'सदस्य नहीं मिला' });
 }
 
 function createJsonResponse(data) {
