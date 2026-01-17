@@ -1,5 +1,5 @@
 
-import { TARGET_DATE } from '../constants';
+import { TARGET_DATE } from '../constants.ts';
 
 export const calculateAgeAsOf2026 = (dobString: string): string => {
   if (!dobString) return '';

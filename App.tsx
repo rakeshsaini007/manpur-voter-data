@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { VoterRecord } from './types';
-import { searchVoters, saveVoters } from './services/api';
-import VoterCard from './components/VoterCard';
-import DuplicateModal from './components/DuplicateModal';
+import React, { useState, useCallback } from 'react';
+import { VoterRecord } from './types.ts';
+import { searchVoters, saveVoters } from './services/api.ts';
+import VoterCard from './components/VoterCard.tsx';
+import DuplicateModal from './components/DuplicateModal.tsx';
 
 const App: React.FC = () => {
   const [booth, setBooth] = useState('');
@@ -58,7 +58,6 @@ const App: React.FC = () => {
   const handleSave = async () => {
     if (voters.length === 0) return;
     
-    // Simple validation
     const invalidAadhar = voters.some(v => v.aadhar && v.aadhar.length !== 12);
     if (invalidAadhar) {
       alert('कृपया सभी आधार नंबर 12 अंकों के भरें।');
@@ -79,7 +78,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header */}
       <header className="bg-indigo-900 text-white shadow-xl px-4 py-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
@@ -122,7 +120,6 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-grow max-w-6xl mx-auto w-full p-6">
         {searchTriggered && voters.length === 0 && !loading && (
           <div className="bg-white rounded-2xl p-12 text-center border-2 border-dashed border-gray-200">
@@ -171,7 +168,6 @@ const App: React.FC = () => {
               ))}
             </div>
 
-            {/* Sticky Action Bar */}
             <div className="sticky bottom-6 mt-8 flex justify-center">
               <button 
                 onClick={handleSave}
@@ -196,7 +192,6 @@ const App: React.FC = () => {
         © 2025 Election Voter Management System • Secure Data Entry
       </footer>
 
-      {/* Modals */}
       <DuplicateModal 
         member={duplicateMember} 
         onClose={() => setDuplicateMember(null)} 

@@ -1,8 +1,8 @@
 
-import React, { useEffect, useState } from 'react';
-import { VoterRecord } from '../types';
-import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations';
-import { checkDuplicateAadhar } from '../services/api';
+import React, { useState } from 'react';
+import { VoterRecord } from '../types.ts';
+import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
+import { checkDuplicateAadhar } from '../services/api.ts';
 
 interface VoterCardProps {
   voter: VoterRecord;
