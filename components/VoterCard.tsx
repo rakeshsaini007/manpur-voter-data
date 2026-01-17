@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { VoterRecord } from '../types.ts';
 import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
 import { checkDuplicateAadhar } from '../services/api.ts';
+import { extractAadharNumber } from '../services/ocr.ts';
 import CameraModal from './CameraModal.tsx';
 
 interface VoterCardProps {
@@ -17,6 +18,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   const [localDob, setLocalDob] = useState(voter.dob || '');
   const [showCamera, setShowCamera] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
     setLocalAadhar(voter.aadhar || '');
@@ -27,8 +29,9 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, [field]: value });
   };
 
-  const handleAadharChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = formatAadhar(e.target.value);
+  const handleAadharChange = async (e: React.ChangeEvent<HTMLInputElement> | string) => {
+    const rawVal = typeof e === 'string' ? e : e.target.value;
+    const val = formatAadhar(rawVal);
     setLocalAadhar(val);
     
     const updated = { ...voter, aadhar: val };
@@ -49,8 +52,18 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, dob: val, calculatedAge: age });
   };
 
-  const handlePhotoCaptured = (base64: string) => {
+  const handlePhotoCaptured = async (base64: string) => {
+    // 1. Update the image in the record
     onChange({ ...voter, aadharPhoto: base64 });
+    
+    // 2. Start AI extraction for Aadhar number
+    setIsExtracting(true);
+    const extractedNumber = await extractAadharNumber(base64);
+    setIsExtracting(false);
+
+    if (extractedNumber) {
+      handleAadharChange(extractedNumber);
+    }
   };
 
   return (
@@ -190,18 +203,26 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
         <div className="space-y-4">
           <div className="relative">
             <label className="block text-[10px] font-bold text-gray-500 mb-1.5 px-1">आधार संख्या (12 अंक)</label>
-            <input 
-              type="text" 
-              value={localAadhar}
-              onChange={handleAadharChange}
-              placeholder="0000 0000 0000"
-              className="w-full px-5 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm font-black tracking-[0.2em] placeholder:text-gray-300 outline-none shadow-sm"
-            />
-            {localAadhar.length === 12 && (
-              <div className="absolute right-4 top-[38px] text-green-500">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-              </div>
-            )}
+            <div className="relative">
+              <input 
+                type="text" 
+                value={isExtracting ? "एक्सट्रैक्टिंग..." : localAadhar}
+                onChange={handleAadharChange}
+                disabled={isExtracting}
+                placeholder="0000 0000 0000"
+                className={`w-full px-5 py-3 border rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-black tracking-[0.2em] placeholder:text-gray-300 outline-none shadow-sm ${isExtracting ? 'bg-indigo-50 border-indigo-200 text-indigo-400 animate-pulse cursor-wait' : 'bg-gray-50 border-gray-100 text-gray-900 focus:bg-white'}`}
+              />
+              {isExtracting && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                   <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent animate-spin rounded-full"></div>
+                </div>
+              )}
+              {!isExtracting && localAadhar.length === 12 && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
