@@ -1,51 +1,53 @@
 
 import { VoterRecord, ApiSearchResponse, ApiSaveResponse } from '../types.ts';
-import { GAS_DEPLOY_URL } from '../constants.ts';
+import { GAS_DEPLOY_URL as DEFAULT_URL } from '../constants.ts';
+
+// Get URL from localStorage or fallback to default
+const getBaseUrl = () => {
+  return localStorage.getItem('voter_script_url') || DEFAULT_URL;
+};
 
 export const getMetadata = async (): Promise<{ success: boolean; booths: string[]; houseMap: Record<string, string[]>; error?: string }> => {
   try {
-    const url = `${GAS_DEPLOY_URL}?action=getMetadata`;
+    const url = `${getBaseUrl()}?action=getMetadata`;
     const response = await fetch(url);
+    if (!response.ok) throw new Error('Network response was not ok');
     const result = await response.json();
     return result;
   } catch (error) {
     console.error('Metadata Error:', error);
-    return { success: false, booths: [], houseMap: {}, error: 'नेटवर्क त्रुटि: ड्रॉपडाउन डेटा लोड करने में असमर्थ' };
+    return { success: false, booths: [], houseMap: {}, error: 'कनेक्शन विफल: कृपया सेटिंग्स में सही "Script URL" जाँचें।' };
   }
 };
 
 export const searchVoters = async (booth: string, house: string): Promise<ApiSearchResponse> => {
   try {
-    const url = `${GAS_DEPLOY_URL}?action=search&booth=${encodeURIComponent(booth)}&house=${encodeURIComponent(house)}`;
+    const url = `${getBaseUrl()}?action=search&booth=${encodeURIComponent(booth)}&house=${encodeURIComponent(house)}`;
     const response = await fetch(url);
     const result = await response.json();
     return result;
   } catch (error) {
     console.error('Search Error:', error);
-    return { success: false, data: [], error: 'नेटवर्क त्रुटि: डेटा खोजने में असमर्थ' };
+    return { success: false, data: [], error: 'डेटा खोजने में असमर्थ। कृपया इंटरनेट और Script URL जाँचें।' };
   }
 };
 
 export const searchVotersByName = async (query: string): Promise<ApiSearchResponse> => {
   try {
-    const url = `${GAS_DEPLOY_URL}?action=searchByName&query=${encodeURIComponent(query)}`;
+    const url = `${getBaseUrl()}?action=searchByName&query=${encodeURIComponent(query)}`;
     const response = await fetch(url);
     const result = await response.json();
     return result;
   } catch (error) {
     console.error('Name Search Error:', error);
-    return { success: false, data: [], error: 'नेटवर्क त्रुटि: नाम से खोजने में असमर्थ' };
+    return { success: false, data: [], error: 'नाम से खोजने में असमर्थ।' };
   }
 };
 
 export const saveVoters = async (voters: VoterRecord[]): Promise<ApiSaveResponse> => {
   try {
-    const response = await fetch(GAS_DEPLOY_URL, {
+    const response = await fetch(getBaseUrl(), {
       method: 'POST',
-      mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ action: 'save', data: voters }),
     });
     return { success: true, message: 'डेटा सफलतापूर्वक सहेजा गया' };
@@ -57,12 +59,8 @@ export const saveVoters = async (voters: VoterRecord[]): Promise<ApiSaveResponse
 
 export const deleteVoter = async (booth: string, voterNo: string, reason: string): Promise<ApiSaveResponse> => {
   try {
-    await fetch(GAS_DEPLOY_URL, {
+    await fetch(getBaseUrl(), {
       method: 'POST',
-      mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ action: 'delete', booth, voterNo, reason }),
     });
     return { success: true, message: 'सदस्य को हटा दिया गया' };
@@ -74,7 +72,7 @@ export const deleteVoter = async (booth: string, voterNo: string, reason: string
 
 export const checkDuplicateAadhar = async (aadhar: string, currentVoterNo: string): Promise<any> => {
   try {
-    const url = `${GAS_DEPLOY_URL}?action=checkAadhar&aadhar=${encodeURIComponent(aadhar)}&voterNo=${encodeURIComponent(currentVoterNo)}`;
+    const url = `${getBaseUrl()}?action=checkAadhar&aadhar=${encodeURIComponent(aadhar)}&voterNo=${encodeURIComponent(currentVoterNo)}`;
     const response = await fetch(url);
     const result = await response.json();
     return result;
