@@ -1,13 +1,6 @@
 
 /**
  * GOOGLE APPS SCRIPT BACKEND
- * 
- * Instructions:
- * 1. Open Google Sheets.
- * 2. Extensions -> Apps Script.
- * 3. Copy-paste this code into the editor.
- * 4. Deploy as Web App -> Execute as me -> Access 'Anyone'.
- * 5. Update GAS_DEPLOY_URL in constants.ts with the generated URL.
  */
 
 const SHEET_NAME = 'Sheet1'; 
@@ -46,10 +39,10 @@ function doPost(e) {
 function handleGetMetadata() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) return createJsonResponse({ success: false, error: 'Sheet not found' });
+  if (!sheet) return createJsonResponse({ success: false, error: 'Sheet1 not found' });
   
   const data = sheet.getDataRange().getValues();
-  const boothMap = {}; // { booth: [house1, house2] }
+  const boothMap = {};
   
   for (let i = 1; i < data.length; i++) {
     const booth = String(data[i][0]).trim();
@@ -78,19 +71,7 @@ function handleSearch(booth, house) {
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (String(row[0]).trim() === String(booth).trim() && String(row[2]).trim() === String(house).trim()) {
-      results.push({
-        booth: String(row[0]),
-        voterNo: String(row[1]),
-        houseNo: String(row[2]),
-        name: String(row[3]),
-        relationName: String(row[4]),
-        gender: String(row[5]),
-        originalAge: String(row[6]),
-        aadhar: String(row[7] || ''),
-        dob: String(row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5:30", "yyyy-MM-dd") : ''),
-        calculatedAge: String(row[9] || ''),
-        rowIdx: i + 1
-      });
+      results.push(mapRowToVoter(row, i + 1));
     }
   }
   
@@ -111,23 +92,27 @@ function handleSearchByName(query) {
     const relationName = String(row[4]).toLowerCase();
     
     if (name.indexOf(q) !== -1 || relationName.indexOf(q) !== -1) {
-      results.push({
-        booth: String(row[0]),
-        voterNo: String(row[1]),
-        houseNo: String(row[2]),
-        name: String(row[3]),
-        relationName: String(row[4]),
-        gender: String(row[5]),
-        originalAge: String(row[6]),
-        aadhar: String(row[7] || ''),
-        dob: String(row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5:30", "yyyy-MM-dd") : ''),
-        calculatedAge: String(row[9] || ''),
-        rowIdx: i + 1
-      });
+      results.push(mapRowToVoter(row, i + 1));
     }
   }
   
   return createJsonResponse({ success: true, data: results });
+}
+
+function mapRowToVoter(row, rowIdx) {
+  return {
+    booth: String(row[0]),
+    voterNo: String(row[1]),
+    houseNo: String(row[2]),
+    name: String(row[3]),
+    relationName: String(row[4]),
+    gender: String(row[5]),
+    originalAge: String(row[6]),
+    aadhar: String(row[7] || ''),
+    dob: String(row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5:30", "yyyy-MM-dd") : ''),
+    calculatedAge: String(row[9] || ''),
+    rowIdx: rowIdx
+  };
 }
 
 function handleCheckAadhar(aadhar, currentVoterNo) {
@@ -140,12 +125,7 @@ function handleCheckAadhar(aadhar, currentVoterNo) {
     if (String(row[7]) === String(aadhar) && String(row[1]) !== String(currentVoterNo)) {
       return createJsonResponse({
         isDuplicate: true,
-        member: {
-          name: row[3],
-          voterNo: row[1],
-          houseNo: row[2],
-          booth: row[0]
-        }
+        member: mapRowToVoter(row, i + 1)
       });
     }
   }
@@ -157,15 +137,18 @@ function handleSave(voters) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
   
-  // Prepare NewVoters sheet
+  // Ensure NewVoters sheet exists
   let newVotersSheet = ss.getSheetByName(NEW_VOTERS_SHEET_NAME);
   if (!newVotersSheet) {
     newVotersSheet = ss.insertSheet(NEW_VOTERS_SHEET_NAME);
-    newVotersSheet.appendRow([...dataRows[0], 'Added On']); // Use same headers as main sheet
+    const headers = [...dataRows[0]];
+    headers[10] = 'Added On'; // 11th column for timestamp
+    newVotersSheet.appendRow(headers);
   }
   
   voters.forEach(v => {
     let rowIndex = -1;
+    // Check if voter already exists in Sheet1
     for (let i = 1; i < dataRows.length; i++) {
       if (String(dataRows[i][0]) === String(v.booth) && String(dataRows[i][1]) === String(v.voterNo)) {
         rowIndex = i + 1;
@@ -173,22 +156,24 @@ function handleSave(voters) {
       }
     }
     
-    const rowData = [
+    const rowValues = [
       v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge
     ];
 
     if (rowIndex > 0) {
-      // Update existing in Sheet1
-      sheet.getRange(rowIndex, 1, 1, 10).setValues([rowData]);
+      // Member exists: Update in Sheet1
+      sheet.getRange(rowIndex, 1, 1, 10).setValues([rowValues]);
     } else {
-      // Add new to Sheet1
-      sheet.appendRow(rowData);
-      // Also add to NewVoters sheet
-      newVotersSheet.appendRow([...rowData, new Date()]);
+      // New Member: Add to both Sheet1 and NewVoters
+      sheet.appendRow(rowValues);
+      
+      const newVoterRow = [...rowValues];
+      newVoterRow[10] = new Date(); // Add timestamp
+      newVotersSheet.appendRow(newVoterRow);
     }
   });
   
-  return createJsonResponse({ success: true, message: 'Saved successfully' });
+  return createJsonResponse({ success: true, message: 'डेटा सफलतापूर्वक सहेजा गया' });
 }
 
 function handleDelete(booth, voterNo, reason) {
@@ -199,7 +184,9 @@ function handleDelete(booth, voterNo, reason) {
   let deletedSheet = ss.getSheetByName(DELETED_SHEET_NAME);
   if (!deletedSheet) {
     deletedSheet = ss.insertSheet(DELETED_SHEET_NAME);
-    const headers = [...dataRows[0], 'Deletion Reason', 'Deletion Time'];
+    const headers = [...dataRows[0]];
+    headers[10] = 'Deletion Reason';
+    headers[11] = 'Deletion Time';
     deletedSheet.appendRow(headers);
   }
   
@@ -213,8 +200,8 @@ function handleDelete(booth, voterNo, reason) {
   
   if (rowIndex > 0) {
     const rowValues = [...dataRows[rowIndex - 1]];
-    rowValues.push(reason || 'N/A');
-    rowValues.push(new Date());
+    rowValues[10] = reason || 'N/A';
+    rowValues[11] = new Date();
     deletedSheet.appendRow(rowValues);
     sheet.deleteRow(rowIndex);
     return createJsonResponse({ success: true, message: 'सदस्य को सफलतापूर्वक हटाया गया' });
