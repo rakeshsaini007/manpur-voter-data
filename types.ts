@@ -10,6 +10,7 @@ export interface VoterRecord {
   aadhar: string;         // आधार संख्या
   dob: string;            // जन्म तिथि
   calculatedAge: string;  // उम्र (as of Jan 1, 2026)
+  aadharPhoto?: string;   // आधार कार्ड की फोटो (Base64)
   rowIdx?: number;        // Tracking row in Sheet
   isNew?: boolean;        // If manually added
 }

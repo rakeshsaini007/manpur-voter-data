@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { VoterRecord } from '../types.ts';
 import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
 import { checkDuplicateAadhar } from '../services/api.ts';
+import CameraModal from './CameraModal.tsx';
 
 interface VoterCardProps {
   voter: VoterRecord;
@@ -14,6 +15,7 @@ interface VoterCardProps {
 const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest, onDuplicateFound }) => {
   const [localAadhar, setLocalAadhar] = useState(voter.aadhar || '');
   const [localDob, setLocalDob] = useState(voter.dob || '');
+  const [showCamera, setShowCamera] = useState(false);
 
   useEffect(() => {
     setLocalAadhar(voter.aadhar || '');
@@ -46,6 +48,10 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, dob: val, calculatedAge: age });
   };
 
+  const handlePhotoCaptured = (base64: string) => {
+    onChange({ ...voter, aadharPhoto: base64 });
+  };
+
   return (
     <div className={`bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-all duration-300 flex flex-col h-full relative`}>
       <div className="bg-indigo-600 px-4 py-2 flex justify-between items-center">
@@ -67,26 +73,63 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
       </div>
       
       <div className="p-5 space-y-4 flex-grow">
-        <div className="grid grid-cols-1 gap-3">
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">निर्वाचक का नाम</label>
-            <input 
-              type="text" 
-              value={voter.name}
-              onChange={(e) => handleFieldChange('name', e.target.value)}
-              className="w-full px-3 py-1.5 text-sm font-semibold text-gray-900 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
-              placeholder="नाम भरें"
-            />
+        <div className="flex gap-4 items-start">
+          {/* Photo Section */}
+          <div className="flex-shrink-0">
+            <div className="relative w-24 h-32 bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 overflow-hidden flex items-center justify-center group">
+              {voter.aadharPhoto ? (
+                <img 
+                  src={voter.aadharPhoto} 
+                  alt="Aadhar Card" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center p-2">
+                  <svg className="w-6 h-6 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase">फोटो नहीं है</p>
+                </div>
+              )}
+              <button 
+                onClick={() => setShowCamera(true)}
+                className="absolute inset-0 bg-black/40 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </button>
+            </div>
+            {voter.aadharPhoto && (
+               <button 
+                onClick={() => handleFieldChange('aadharPhoto', '')}
+                className="w-full mt-1 text-[8px] font-bold text-red-400 hover:text-red-600 uppercase"
+               >
+                 हटाएं
+               </button>
+            )}
           </div>
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">पिता/पति का नाम</label>
-            <input 
-              type="text" 
-              value={voter.relationName}
-              onChange={(e) => handleFieldChange('relationName', e.target.value)}
-              className="w-full px-3 py-1.5 text-sm font-medium text-gray-900 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
-              placeholder="रिश्तेदार का नाम भरें"
-            />
+
+          <div className="flex-grow space-y-3">
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">निर्वाचक का नाम</label>
+              <input 
+                type="text" 
+                value={voter.name}
+                onChange={(e) => handleFieldChange('name', e.target.value)}
+                className="w-full px-3 py-1.5 text-sm font-semibold text-gray-900 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+                placeholder="नाम भरें"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">पिता/पति का नाम</label>
+              <input 
+                type="text" 
+                value={voter.relationName}
+                onChange={(e) => handleFieldChange('relationName', e.target.value)}
+                className="w-full px-3 py-1.5 text-sm font-medium text-gray-900 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+                placeholder="रिश्तेदार का नाम भरें"
+              />
+            </div>
           </div>
         </div>
 
@@ -146,6 +189,13 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
           </div>
         </div>
       </div>
+
+      {showCamera && (
+        <CameraModal 
+          onCapture={handlePhotoCaptured} 
+          onClose={() => setShowCamera(false)} 
+        />
+      )}
     </div>
   );
 };

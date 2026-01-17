@@ -1,5 +1,7 @@
 {
   "name": "Election Voter Data Management",
   "description": "A React-based voter management system that interacts with Google Sheets via Apps Script to fetch, edit, and update voter details including Aadhar numbers and DOB with auto-age calculation.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

@@ -111,6 +111,7 @@ function mapRowToVoter(row, rowIdx) {
     aadhar: String(row[7] || ''),
     dob: String(row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5:30", "yyyy-MM-dd") : ''),
     calculatedAge: String(row[9] || ''),
+    aadharPhoto: String(row[10] || ''),
     rowIdx: rowIdx
   };
 }
@@ -142,13 +143,13 @@ function handleSave(voters) {
   if (!newVotersSheet) {
     newVotersSheet = ss.insertSheet(NEW_VOTERS_SHEET_NAME);
     const headers = [...dataRows[0]];
-    headers[10] = 'Added On'; // 11th column for timestamp
+    if (headers.length < 11) headers[10] = 'Photo';
+    headers[11] = 'Added On'; 
     newVotersSheet.appendRow(headers);
   }
   
   voters.forEach(v => {
     let rowIndex = -1;
-    // Check if voter already exists in Sheet1
     for (let i = 1; i < dataRows.length; i++) {
       if (String(dataRows[i][0]) === String(v.booth) && String(dataRows[i][1]) === String(v.voterNo)) {
         rowIndex = i + 1;
@@ -157,18 +158,15 @@ function handleSave(voters) {
     }
     
     const rowValues = [
-      v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge
+      v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge, v.aadharPhoto || ''
     ];
 
     if (rowIndex > 0) {
-      // Member exists: Update in Sheet1
-      sheet.getRange(rowIndex, 1, 1, 10).setValues([rowValues]);
+      sheet.getRange(rowIndex, 1, 1, 11).setValues([rowValues]);
     } else {
-      // New Member: Add to both Sheet1 and NewVoters
       sheet.appendRow(rowValues);
-      
       const newVoterRow = [...rowValues];
-      newVoterRow[10] = new Date(); // Add timestamp
+      newVoterRow[11] = new Date(); 
       newVotersSheet.appendRow(newVoterRow);
     }
   });
@@ -185,8 +183,9 @@ function handleDelete(booth, voterNo, reason) {
   if (!deletedSheet) {
     deletedSheet = ss.insertSheet(DELETED_SHEET_NAME);
     const headers = [...dataRows[0]];
-    headers[10] = 'Deletion Reason';
-    headers[11] = 'Deletion Time';
+    if (headers.length < 11) headers[10] = 'Photo';
+    headers[11] = 'Deletion Reason';
+    headers[12] = 'Deletion Time';
     deletedSheet.appendRow(headers);
   }
   
@@ -200,8 +199,10 @@ function handleDelete(booth, voterNo, reason) {
   
   if (rowIndex > 0) {
     const rowValues = [...dataRows[rowIndex - 1]];
-    rowValues[10] = reason || 'N/A';
-    rowValues[11] = new Date();
+    // Ensure rowValues has enough length
+    while(rowValues.length < 11) rowValues.push('');
+    rowValues[11] = reason || 'N/A';
+    rowValues[12] = new Date();
     deletedSheet.appendRow(rowValues);
     sheet.deleteRow(rowIndex);
     return createJsonResponse({ success: true, message: 'सदस्य को सफलतापूर्वक हटाया गया' });
