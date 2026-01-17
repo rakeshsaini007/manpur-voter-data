@@ -10,7 +10,7 @@
  * 5. Update GAS_DEPLOY_URL in constants.ts with the generated URL.
  */
 
-const SHEET_NAME = 'Sheet1'; // Change if your sheet name is different
+const SHEET_NAME = 'Sheet1'; 
 
 function doGet(e) {
   const action = e.parameter.action;
@@ -19,6 +19,8 @@ function doGet(e) {
     return handleSearch(e.parameter.booth, e.parameter.house);
   } else if (action === 'checkAadhar') {
     return handleCheckAadhar(e.parameter.aadhar, e.parameter.voterNo);
+  } else if (action === 'getMetadata') {
+    return handleGetMetadata();
   }
   
   return createJsonResponse({ success: false, error: 'Invalid Action' });
@@ -35,16 +37,37 @@ function doPost(e) {
   }
 }
 
+function handleGetMetadata() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  const boothMap = {}; // { booth: [house1, house2] }
+  
+  for (let i = 1; i < data.length; i++) {
+    const booth = String(data[i][0]).trim();
+    const house = String(data[i][2]).trim();
+    if (booth && house) {
+      if (!boothMap[booth]) boothMap[booth] = new Set();
+      boothMap[booth].add(house);
+    }
+  }
+  
+  const formattedMap = {};
+  const booths = Object.keys(boothMap).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+  booths.forEach(b => {
+    formattedMap[b] = Array.from(boothMap[b]).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+  });
+  
+  return createJsonResponse({ success: true, booths, houseMap: formattedMap });
+}
+
 function handleSearch(booth, house) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
-  const headers = data[0];
   const results = [];
   
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    // Column indices (0-based): 0=Booth, 1=VoterNo, 2=HouseNo
-    if (String(row[0]) === String(booth) && String(row[2]) === String(house)) {
+    if (String(row[0]).trim() === String(booth).trim() && String(row[2]).trim() === String(house).trim()) {
       results.push({
         booth: String(row[0]),
         voterNo: String(row[1]),
@@ -70,7 +93,6 @@ function handleCheckAadhar(aadhar, currentVoterNo) {
   
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    // Aadhar is at index 7, VoterNo at index 1
     if (String(row[7]) === String(aadhar) && String(row[1]) !== String(currentVoterNo)) {
       return createJsonResponse({
         isDuplicate: true,
@@ -92,8 +114,6 @@ function handleSave(voters) {
   
   voters.forEach(v => {
     let rowIndex = -1;
-    
-    // Find matching row by Booth + VoterNo
     for (let i = 1; i < dataRows.length; i++) {
       if (String(dataRows[i][0]) === String(v.booth) && String(dataRows[i][1]) === String(v.voterNo)) {
         rowIndex = i + 1;
@@ -102,7 +122,11 @@ function handleSave(voters) {
     }
     
     if (rowIndex > 0) {
-      // Update existing
+      // Update existing - Added Name, Relation, Gender, Age
+      sheet.getRange(rowIndex, 4).setValue(v.name);
+      sheet.getRange(rowIndex, 5).setValue(v.relationName);
+      sheet.getRange(rowIndex, 6).setValue(v.gender);
+      sheet.getRange(rowIndex, 7).setValue(v.originalAge);
       sheet.getRange(rowIndex, 8).setValue(v.aadhar);
       sheet.getRange(rowIndex, 9).setValue(v.dob);
       sheet.getRange(rowIndex, 10).setValue(v.calculatedAge);

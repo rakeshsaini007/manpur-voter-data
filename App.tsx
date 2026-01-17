@@ -1,18 +1,34 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { VoterRecord } from './types.ts';
-import { searchVoters, saveVoters } from './services/api.ts';
+import { searchVoters, saveVoters, getMetadata } from './services/api.ts';
 import VoterCard from './components/VoterCard.tsx';
 import DuplicateModal from './components/DuplicateModal.tsx';
 
 const App: React.FC = () => {
   const [booth, setBooth] = useState('');
   const [house, setHouse] = useState('');
+  const [boothOptions, setBoothOptions] = useState<string[]>([]);
+  const [houseMap, setHouseMap] = useState<Record<string, string[]>>({});
   const [voters, setVoters] = useState<VoterRecord[]>([]);
   const [loading, setLoading] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [duplicateMember, setDuplicateMember] = useState<VoterRecord | null>(null);
   const [searchTriggered, setSearchTriggered] = useState(false);
+
+  useEffect(() => {
+    const fetchMeta = async () => {
+      setMetaLoading(true);
+      const res = await getMetadata();
+      if (res.success) {
+        setBoothOptions(res.booths);
+        setHouseMap(res.houseMap);
+      }
+      setMetaLoading(false);
+    };
+    fetchMeta();
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +90,7 @@ const App: React.FC = () => {
     setSaving(false);
   };
 
+  const houseOptions = booth ? houseMap[booth] || [] : [];
   const hasExistingData = voters.some(v => v.aadhar || v.dob);
 
   return (
@@ -93,26 +110,36 @@ const App: React.FC = () => {
           </div>
 
           <form onSubmit={handleSearch} className="w-full md:w-auto flex flex-wrap gap-2">
-            <input 
-              type="text" 
-              placeholder="बूथ संख्या" 
-              value={booth} 
-              onChange={e => setBooth(e.target.value)}
-              className="px-4 py-2 bg-indigo-800 border border-indigo-700 text-white placeholder-indigo-400 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 w-32"
-              required
-            />
-            <input 
-              type="text" 
-              placeholder="मकान नं०" 
-              value={house} 
-              onChange={e => setHouse(e.target.value)}
-              className="px-4 py-2 bg-indigo-800 border border-indigo-700 text-white placeholder-indigo-400 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 w-32"
-              required
-            />
+            <div className="relative">
+              <select 
+                value={booth} 
+                onChange={e => { setBooth(e.target.value); setHouse(''); }}
+                className="appearance-none px-4 py-2 bg-indigo-800 border border-indigo-700 text-white placeholder-indigo-400 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 w-40"
+                required
+                disabled={metaLoading}
+              >
+                <option value="">बूथ चुनें</option>
+                {boothOptions.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+
+            <div className="relative">
+              <select 
+                value={house} 
+                onChange={e => setHouse(e.target.value)}
+                className="appearance-none px-4 py-2 bg-indigo-800 border border-indigo-700 text-white placeholder-indigo-400 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 w-40"
+                required
+                disabled={!booth || metaLoading}
+              >
+                <option value="">मकान चुनें</option>
+                {houseOptions.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+            </div>
+
             <button 
               type="submit" 
-              disabled={loading}
-              className="px-6 py-2 bg-white text-indigo-900 font-bold rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-2"
+              disabled={loading || !booth || !house}
+              className="px-6 py-2 bg-white text-indigo-900 font-bold rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               {loading ? 'खोज रहे हैं...' : 'खोजें'}
             </button>

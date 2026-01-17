@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VoterRecord } from '../types.ts';
 import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
 import { checkDuplicateAadhar } from '../services/api.ts';
@@ -13,6 +13,16 @@ interface VoterCardProps {
 const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDuplicateFound }) => {
   const [localAadhar, setLocalAadhar] = useState(voter.aadhar || '');
   const [localDob, setLocalDob] = useState(voter.dob || '');
+
+  // Update local state if voter object changes externally
+  useEffect(() => {
+    setLocalAadhar(voter.aadhar || '');
+    setLocalDob(voter.dob || '');
+  }, [voter.voterNo]);
+
+  const handleFieldChange = (field: keyof VoterRecord, value: string) => {
+    onChange({ ...voter, [field]: value });
+  };
 
   const handleAadharChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = formatAadhar(e.target.value);
@@ -37,7 +47,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDuplicateFound
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow duration-300">
+    <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
       <div className="bg-indigo-600 px-4 py-2 flex justify-between items-center">
         <span className="text-white font-bold text-sm">मतदाता क्रमांक: {voter.voterNo}</span>
         <span className="bg-indigo-400 text-white text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">
@@ -45,30 +55,55 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDuplicateFound
         </span>
       </div>
       
-      <div className="p-5 space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+      <div className="p-5 space-y-4 flex-grow">
+        <div className="grid grid-cols-1 gap-3">
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide">निर्वाचक का नाम</label>
-            <p className="text-gray-900 font-semibold">{voter.name || '—'}</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">निर्वाचक का नाम</label>
+            <input 
+              type="text" 
+              value={voter.name}
+              onChange={(e) => handleFieldChange('name', e.target.value)}
+              className="w-full px-3 py-1.5 text-sm font-semibold text-gray-900 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+              placeholder="नाम भरें"
+            />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide">पिता/पति का नाम</label>
-            <p className="text-gray-900 font-medium">{voter.relationName || '—'}</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">पिता/पति का नाम</label>
+            <input 
+              type="text" 
+              value={voter.relationName}
+              onChange={(e) => handleFieldChange('relationName', e.target.value)}
+              className="w-full px-3 py-1.5 text-sm font-medium text-gray-900 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+              placeholder="रिश्तेदार का नाम भरें"
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 py-2 border-y border-gray-50">
           <div className="text-center">
-            <label className="block text-[10px] font-bold text-gray-400 uppercase">लिंग</label>
-            <p className="text-sm font-medium">{voter.gender || '—'}</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">लिंग</label>
+            <select 
+              value={voter.gender}
+              onChange={(e) => handleFieldChange('gender', e.target.value)}
+              className="w-full text-xs font-medium border-none bg-gray-50 rounded p-1 outline-none text-center"
+            >
+              <option value="पु">पु</option>
+              <option value="म">म</option>
+              <option value="अन्य">अन्य</option>
+            </select>
           </div>
           <div className="text-center">
-            <label className="block text-[10px] font-bold text-gray-400 uppercase">वर्तमान आयु</label>
-            <p className="text-sm font-medium">{voter.originalAge || '—'}</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">वर्तमान आयु</label>
+            <input 
+              type="number" 
+              value={voter.originalAge}
+              onChange={(e) => handleFieldChange('originalAge', e.target.value)}
+              className="w-full text-xs font-medium border-none bg-gray-50 rounded p-1 outline-none text-center"
+            />
           </div>
           <div className="text-center">
-            <label className="block text-[10px] font-bold text-gray-400 uppercase">बूथ/मकान</label>
-            <p className="text-sm font-medium">{voter.booth}/{voter.houseNo}</p>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">बूथ/मकान</label>
+            <p className="text-xs font-bold text-gray-500 mt-1">{voter.booth}/{voter.houseNo}</p>
           </div>
         </div>
 
@@ -80,7 +115,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDuplicateFound
               value={localAadhar}
               onChange={handleAadharChange}
               placeholder="0000 0000 0000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
             />
           </div>
           <div>
@@ -89,7 +124,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDuplicateFound
               type="date" 
               value={localDob}
               onChange={handleDobChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
             />
           </div>
           <div className="bg-gray-50 p-2 rounded-md border border-dashed border-gray-200">
