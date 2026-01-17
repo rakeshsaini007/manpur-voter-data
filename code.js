@@ -35,7 +35,7 @@ function doPost(e) {
     if (requestData.action === 'save') {
       return handleSave(requestData.data);
     } else if (requestData.action === 'delete') {
-      return handleDelete(requestData.booth, requestData.voterNo);
+      return handleDelete(requestData.booth, requestData.voterNo, requestData.reason);
     }
   } catch (err) {
     return createJsonResponse({ success: false, error: err.toString() });
@@ -178,7 +178,7 @@ function handleSave(voters) {
   return createJsonResponse({ success: true, message: 'Saved successfully' });
 }
 
-function handleDelete(booth, voterNo) {
+function handleDelete(booth, voterNo, reason) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
@@ -186,7 +186,8 @@ function handleDelete(booth, voterNo) {
   let deletedSheet = ss.getSheetByName(DELETED_SHEET_NAME);
   if (!deletedSheet) {
     deletedSheet = ss.insertSheet(DELETED_SHEET_NAME);
-    deletedSheet.appendRow(dataRows[0]); // Add headers
+    const headers = [...dataRows[0], 'Deletion Reason', 'Deletion Time'];
+    deletedSheet.appendRow(headers);
   }
   
   let rowIndex = -1;
@@ -198,7 +199,9 @@ function handleDelete(booth, voterNo) {
   }
   
   if (rowIndex > 0) {
-    const rowValues = dataRows[rowIndex - 1];
+    const rowValues = [...dataRows[rowIndex - 1]];
+    rowValues.push(reason || 'N/A');
+    rowValues.push(new Date());
     deletedSheet.appendRow(rowValues);
     sheet.deleteRow(rowIndex);
     return createJsonResponse({ success: true, message: 'सदस्य को सफलतापूर्वक हटाया गया' });

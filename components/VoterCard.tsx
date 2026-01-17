@@ -7,14 +7,13 @@ import { checkDuplicateAadhar } from '../services/api.ts';
 interface VoterCardProps {
   voter: VoterRecord;
   onChange: (updatedVoter: VoterRecord) => void;
-  onDelete: (booth: string, voterNo: string) => void;
+  onDeleteRequest: (voter: VoterRecord) => void;
   onDuplicateFound: (member: VoterRecord) => void;
 }
 
-const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDelete, onDuplicateFound }) => {
+const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest, onDuplicateFound }) => {
   const [localAadhar, setLocalAadhar] = useState(voter.aadhar || '');
   const [localDob, setLocalDob] = useState(voter.dob || '');
-  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     setLocalAadhar(voter.aadhar || '');
@@ -47,15 +46,8 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDelete, onDupl
     onChange({ ...voter, dob: val, calculatedAge: age });
   };
 
-  const handleDeleteClick = () => {
-    if (window.confirm(`क्या आप वाकई सदस्य "${voter.name || 'बेनाम'}" को हटाना चाहते हैं?`)) {
-      setIsDeleting(true);
-      onDelete(voter.booth, voter.voterNo);
-    }
-  };
-
   return (
-    <div className={`bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-all duration-300 flex flex-col h-full relative ${isDeleting ? 'opacity-50 grayscale' : ''}`}>
+    <div className={`bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg transition-all duration-300 flex flex-col h-full relative`}>
       <div className="bg-indigo-600 px-4 py-2 flex justify-between items-center">
         <span className="text-white font-bold text-sm">मतदाता क्रमांक: {voter.voterNo}</span>
         <div className="flex items-center gap-2">
@@ -63,8 +55,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDelete, onDupl
             {voter.isNew ? 'नया सदस्य' : 'मौजूदा सदस्य'}
           </span>
           <button 
-            onClick={handleDeleteClick}
-            disabled={isDeleting}
+            onClick={() => onDeleteRequest(voter)}
             className="text-white hover:text-red-200 transition-colors p-1"
             title="हटाएं"
           >

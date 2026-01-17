@@ -55,7 +55,7 @@ export const saveVoters = async (voters: VoterRecord[]): Promise<ApiSaveResponse
   }
 };
 
-export const deleteVoter = async (booth: string, voterNo: string): Promise<ApiSaveResponse> => {
+export const deleteVoter = async (booth: string, voterNo: string, reason: string): Promise<ApiSaveResponse> => {
   try {
     await fetch(GAS_DEPLOY_URL, {
       method: 'POST',
@@ -63,7 +63,7 @@ export const deleteVoter = async (booth: string, voterNo: string): Promise<ApiSa
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ action: 'delete', booth, voterNo }),
+      body: JSON.stringify({ action: 'delete', booth, voterNo, reason }),
     });
     return { success: true, message: 'सदस्य को हटा दिया गया' };
   } catch (error) {
