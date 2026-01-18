@@ -80,8 +80,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         const sx = (vWidth - size) / 2;
         const sy = (vHeight - size) / 2;
 
-        // Further optimized target size (320px) to ensure Base64 is well under 50k characters
-        const targetSize = 320; 
+        // Increased resolution to 480px for better OCR legibility
+        const targetSize = 480; 
         canvas.width = targetSize;
         canvas.height = targetSize;
 
@@ -92,8 +92,9 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
 
         context.drawImage(video, sx, sy, size, size, 0, 0, targetSize, targetSize);
         
-        // High compression (0.35) to keep data size tiny
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.35);
+        // Increased quality to 0.7 for significantly better OCR results
+        // This stays safely within the 50,000 character limit for base64 storage
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
         
         const shutter = document.createElement('div');
         shutter.className = 'fixed inset-0 bg-white z-[200] opacity-90';
