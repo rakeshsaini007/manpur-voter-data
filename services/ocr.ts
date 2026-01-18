@@ -1,13 +1,14 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: "AIzaSyD4wY1as79mXvvem-laSMf60T5IIskXZGw" });
-
 /**
  * Extracts a 12-digit Aadhar number from a base64 image string.
  */
 export const extractAadharNumber = async (base64Image: string): Promise<string | null> => {
   try {
+    // Correctly initialize GoogleGenAI inside the function with the environment variable
+    const ai = new GoogleGenAI({ apiKey: "AIzaSyDo0hVOtClkyq_DT9VIxOsp-I5jE_l1ahM" });
+    
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     
     const response = await ai.models.generateContent({
@@ -27,6 +28,7 @@ export const extractAadharNumber = async (base64Image: string): Promise<string |
       }]
     });
 
+    // Directly access the .text property of GenerateContentResponse
     const result = response.text?.trim() || '';
     const match = result.match(/\d{12}/);
     return match ? match[0] : null;

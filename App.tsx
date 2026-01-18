@@ -7,6 +7,11 @@ import DuplicateModal from './components/DuplicateModal.tsx';
 import DeleteConfirmModal from './components/DeleteConfirmModal.tsx';
 import { GAS_DEPLOY_URL as DEFAULT_URL } from './constants.ts';
 
+interface Toast {
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 const App: React.FC = () => {
   const [booth, setBooth] = useState('');
   const [ward, setWard] = useState('');
@@ -24,10 +29,15 @@ const App: React.FC = () => {
   const [duplicateMember, setDuplicateMember] = useState<VoterRecord | null>(null);
   const [voterToDelete, setVoterToDelete] = useState<VoterRecord | null>(null);
   const [searchTriggered, setSearchTriggered] = useState(false);
+  const [toast, setToast] = useState<Toast | null>(null);
   
-  // Settings State
   const [showSettings, setShowSettings] = useState(false);
   const [tempUrl, setTempUrl] = useState(localStorage.getItem('voter_script_url') || DEFAULT_URL);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   const fetchMeta = useCallback(async () => {
     setMetaLoading(true);
@@ -36,6 +46,8 @@ const App: React.FC = () => {
       setBoothOptions(res.booths || []);
       setWardMap(res.wardMap || {});
       setHouseMap(res.houseMap || {});
+    } else {
+      showToast(res.error || 'कनेक्शन विफल', 'error');
     }
     setMetaLoading(false);
   }, []);
@@ -47,7 +59,8 @@ const App: React.FC = () => {
   const handleSaveSettings = () => {
     localStorage.setItem('voter_script_url', tempUrl);
     setShowSettings(false);
-    window.location.reload(); 
+    showToast('सेटिंग्स अपडेट की गई', 'info');
+    setTimeout(() => window.location.reload(), 1000);
   };
 
   const handleSearch = async (e?: React.FormEvent) => {
@@ -60,8 +73,9 @@ const App: React.FC = () => {
     const response = await searchVoters(booth, ward, house);
     if (response.success) {
       setVoters(response.data);
+      if(response.data.length === 0) showToast('कोई परिणाम नहीं मिला', 'info');
     } else {
-      alert(response.error || 'खोज विफल रही');
+      showToast(response.error || 'खोज विफल रही', 'error');
       setVoters([]);
     }
     setLoading(false);
@@ -80,8 +94,9 @@ const App: React.FC = () => {
     const response = await searchVotersByName(nameQuery.trim());
     if (response.success) {
       setVoters(response.data);
+      if(response.data.length === 0) showToast('कोई परिणाम नहीं मिला', 'info');
     } else {
-      alert(response.error || 'नाम से खोज विफल रही');
+      showToast(response.error || 'नाम से खोज विफल रही', 'error');
       setVoters([]);
     }
     setLoading(false);
@@ -107,6 +122,7 @@ const App: React.FC = () => {
     if (voterToDelete.isNew) {
       setVoters(prev => prev.filter(v => !(v.voterNo === vNo && v.booth === vBooth)));
       setVoterToDelete(null);
+      showToast('नया रिकॉर्ड हटाया गया');
       return;
     }
     setLoading(true);
@@ -114,13 +130,16 @@ const App: React.FC = () => {
     setLoading(false);
     if (result.success) {
       setVoters(prev => prev.filter(v => !(v.voterNo === vNo && v.booth === vBooth)));
+      showToast('रिकॉर्ड सफलतापूर्वक हटाया गया');
+    } else {
+      showToast('हटाने में त्रुटि', 'error');
     }
     setVoterToDelete(null);
   }, [voterToDelete]);
 
   const addNewMember = () => {
     if (!booth || !house) {
-      alert('नया सदस्य जोड़ने के लिए पहले बूथ, वार्ड और मकान संख्या चुनें।');
+      showToast('पहले बूथ और मकान चुनें', 'info');
       return;
     }
     const nextVoterNo = voters.length > 0 
@@ -141,7 +160,9 @@ const App: React.FC = () => {
       calculatedAge: '', 
       isNew: true
     };
-    setVoters(prev => [...prev, newVoter]);
+    // Fix: Corrected spread syntax to add single object to array
+    setVoters(prev => [newVoter, ...prev]);
+    showToast('नया सदस्य जोड़ा गया', 'success');
   };
 
   const handleSave = async () => {
@@ -149,9 +170,9 @@ const App: React.FC = () => {
     setSaving(true);
     const result = await saveVoters(voters);
     if (result.success) {
-      alert('डेटा सफलतापूर्वक सहेजा/अपडेट किया गया है।');
+      showToast('डेटा सफलतापूर्वक सहेजा गया!', 'success');
     } else {
-      alert(result.message || 'सहेजने में त्रुटि।');
+      showToast(result.message || 'सहेजने में त्रुटि', 'error');
     }
     setSaving(false);
   };
@@ -160,103 +181,235 @@ const App: React.FC = () => {
   const houseOptions = (booth !== '') ? houseMap[`${booth}_${ward}`] || [] : [];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <header className="bg-indigo-950 text-white shadow-xl px-6 py-6">
-        <div className="max-w-6xl mx-auto flex flex-col gap-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={clearResults}>
-              <div className="p-2 bg-white rounded-xl shadow-inner">
-                <svg className="w-8 h-8 text-indigo-900" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 12V8h2v4H9zm0 2h2v2H9v-2z" /></svg>
+    <div className="min-h-screen flex flex-col">
+      {/* Premium Toast Notification */}
+      {toast && (
+        <div className={`fixed top-0 left-1/2 -translate-x-1/2 z-[300] toast-animation w-[90%] max-w-sm`}>
+          <div className={`flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border-l-4 glass-panel ${
+            toast.type === 'success' ? 'border-emerald-500' : 
+            toast.type === 'error' ? 'border-rose-500' : 'border-indigo-500'
+          }`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+              toast.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 
+              toast.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-indigo-600'
+            }`}>
+              {toast.type === 'success' && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
+              {toast.type === 'error' && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>}
+              {toast.type === 'info' && <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+            </div>
+            <p className="text-slate-800 font-bold text-sm tracking-tight">{toast.message}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Main Header */}
+      <header className="bg-indigo-950 text-white relative overflow-hidden shrink-0">
+        {/* Abstract Background Decor */}
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-60 h-60 bg-violet-500/20 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col gap-10 relative z-10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center space-x-5 cursor-pointer group" onClick={clearResults}>
+              <div className="p-4 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 group-hover:scale-105 transition-transform">
+                <svg className="w-8 h-8 text-indigo-300" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 12V8h2v4H9zm0 2h2v2H9v-2z" /></svg>
               </div>
               <div>
-                <h1 className="text-2xl font-black tracking-tight uppercase">Election Portal</h1>
-                <p className="text-indigo-400 text-[10px] font-bold tracking-widest uppercase">निर्वाचन डेटा प्रबंधन</p>
+                <h1 className="text-3xl font-black tracking-tight leading-none">ELECTION PRO</h1>
+                <p className="text-indigo-400 text-xs font-bold tracking-[0.2em] uppercase mt-1 opacity-80">Premium Management Suite</p>
               </div>
             </div>
 
             <div className="flex items-center gap-3 w-full md:w-auto">
-              <form onSubmit={handleNameSearch} className="flex-grow md:w-80 relative">
-                <input type="text" placeholder="नाम से खोजें..." value={nameQuery} onChange={e => setNameQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 text-white placeholder-indigo-300 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400" />
-                <svg className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <form onSubmit={handleNameSearch} className="flex-grow md:w-96 relative group">
+                <input 
+                  type="text" 
+                  placeholder="नाम या पिता के नाम से खोजें..." 
+                  value={nameQuery} 
+                  onChange={e => setNameQuery(e.target.value)} 
+                  className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 text-white placeholder-indigo-400 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white/10 transition-all text-sm"
+                />
+                <svg className="w-6 h-6 absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-200 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
               </form>
-              <button onClick={() => setShowSettings(true)} className="p-2.5 bg-white/10 border border-white/20 rounded-xl text-white hover:bg-white/20 transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
+              <button 
+                onClick={() => setShowSettings(true)} 
+                className="p-3.5 bg-white/5 border border-white/10 rounded-2xl text-indigo-300 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </button>
             </div>
           </div>
 
-          <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 bg-indigo-900/50 p-1.5 rounded-xl border border-indigo-800 shadow-inner">
-              <select value={booth} onChange={e => { setBooth(e.target.value); setWard(''); setHouse(''); }} className="appearance-none px-4 py-2 bg-transparent text-white rounded-lg outline-none w-32 font-medium cursor-pointer" required disabled={metaLoading}>
-                <option value="" className="bg-indigo-950">बूथ</option>
-                {boothOptions.map(b => <option key={b} value={b} className="bg-indigo-950">{b}</option>)}
-              </select>
-              <div className="w-px h-6 bg-indigo-800" />
-              <select value={ward} onChange={e => { setWard(e.target.value); setHouse(''); }} className="appearance-none px-4 py-2 bg-transparent text-white rounded-lg outline-none w-32 font-medium cursor-pointer" disabled={!booth || metaLoading || wardOptions.length === 0}>
-                <option value="" className="bg-indigo-950">{wardOptions.length === 0 ? "वार्ड (N/A)" : "वार्ड"}</option>
-                {wardOptions.map((w, i) => <option key={i} value={w} className="bg-indigo-950">{w || "Standard"}</option>)}
-              </select>
-              <div className="w-px h-6 bg-indigo-800" />
-              <select value={house} onChange={e => setHouse(e.target.value)} className="appearance-none px-4 py-2 bg-transparent text-white rounded-lg outline-none w-32 font-medium cursor-pointer" required disabled={!booth || metaLoading}>
-                <option value="" className="bg-indigo-950">मकान</option>
-                {houseOptions.map((h, i) => <option key={i} value={h} className="bg-indigo-950">{h}</option>)}
-              </select>
+          <form onSubmit={handleSearch} className="flex flex-wrap items-stretch gap-4">
+            <div className="flex flex-grow items-center gap-4 bg-indigo-900/30 p-2 rounded-3xl border border-indigo-800/50 backdrop-blur-md">
+              <div className="flex-1 flex flex-col px-4 group">
+                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">बूथ संख्या</label>
+                <select 
+                  value={booth} 
+                  onChange={e => { setBooth(e.target.value); setWard(''); setHouse(''); }} 
+                  className="bg-transparent text-white text-lg font-bold outline-none cursor-pointer"
+                  required 
+                  disabled={metaLoading}
+                >
+                  <option value="" className="bg-indigo-950">चुनें</option>
+                  {boothOptions.map(b => <option key={b} value={b} className="bg-indigo-950">{b}</option>)}
+                </select>
+              </div>
+              <div className="w-px h-10 bg-indigo-800" />
+              <div className="flex-1 flex flex-col px-4 group">
+                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">वार्ड</label>
+                <select 
+                  value={ward} 
+                  onChange={e => { setWard(e.target.value); setHouse(''); }} 
+                  className="bg-transparent text-white text-lg font-bold outline-none cursor-pointer"
+                  disabled={!booth || metaLoading || wardOptions.length === 0}
+                >
+                  <option value="" className="bg-indigo-950">{wardOptions.length === 0 ? "N/A" : "चुनें"}</option>
+                  {wardOptions.map((w, i) => <option key={i} value={w} className="bg-indigo-950">{w || "Standard"}</option>)}
+                </select>
+              </div>
+              <div className="w-px h-10 bg-indigo-800" />
+              <div className="flex-1 flex flex-col px-4 group">
+                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-0.5">मकान नं०</label>
+                <select 
+                  value={house} 
+                  onChange={e => setHouse(e.target.value)} 
+                  className="bg-transparent text-white text-lg font-bold outline-none cursor-pointer"
+                  required 
+                  disabled={!booth || metaLoading}
+                >
+                  <option value="" className="bg-indigo-950">चुनें</option>
+                  {houseOptions.map((h, i) => <option key={i} value={h} className="bg-indigo-950">{h}</option>)}
+                </select>
+              </div>
             </div>
-            <button type="submit" disabled={loading || !booth || !house} className="px-8 py-3 bg-white text-indigo-950 font-bold rounded-xl hover:bg-indigo-50 transition-all flex items-center gap-2 disabled:opacity-50">
-              {loading ? <div className="w-5 h-5 border-2 border-indigo-950 border-t-transparent animate-spin rounded-full" /> : 'खोजें'}
+            <button 
+              type="submit" 
+              disabled={loading || !booth || !house} 
+              className="px-10 bg-white text-indigo-950 font-black text-lg rounded-3xl hover:bg-indigo-50 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_15px_30px_-5px_rgba(255,255,255,0.2)]"
+            >
+              {loading ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-3 border-indigo-950 border-t-transparent animate-spin rounded-full" />
+                  <span>खोज जारी...</span>
+                </div>
+              ) : 'खोजें'}
             </button>
           </form>
         </div>
       </header>
 
-      <main className="flex-grow max-w-6xl mx-auto w-full p-6">
-        {metaLoading && <div className="text-center py-20 text-indigo-600 font-bold animate-pulse">Loading Database...</div>}
-        
-        {searchTriggered && voters.length === 0 && !loading && (
-          <div className="bg-white rounded-3xl p-16 text-center border-2 border-dashed border-gray-100">
-            <h2 className="text-xl font-bold text-gray-700">कोई रिकॉर्ड नहीं मिला</h2>
-            <button onClick={addNewMember} className="mt-6 px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all">नया सदस्य जोड़ें</button>
+      {/* Main Content Area */}
+      <main className="flex-grow max-w-7xl mx-auto w-full p-6 md:p-10 space-y-10">
+        {metaLoading ? (
+          <div className="flex flex-col items-center justify-center py-32 space-y-4">
+             <div className="relative w-16 h-16">
+                <div className="absolute inset-0 border-4 border-indigo-100 rounded-full" />
+                <div className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin" />
+             </div>
+             <p className="text-indigo-900 font-black tracking-widest uppercase text-sm animate-pulse">डेटाबेस तैयार किया जा रहा है...</p>
           </div>
-        )}
-
-        {voters.length > 0 && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">मतदाता सूची ({voters.length})</h2>
+        ) : searchTriggered && voters.length === 0 && !loading ? (
+          <div className="bg-white rounded-[2.5rem] p-20 text-center premium-shadow border border-slate-100 max-w-2xl mx-auto card-entry">
+            <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-8">
+              <svg className="w-12 h-12 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <h2 className="text-3xl font-black text-slate-800">कोई डेटा नहीं मिला!</h2>
+            <p className="text-slate-500 mt-4 font-medium">चयनित विवरण के लिए कोई रिकॉर्ड उपलब्ध नहीं है। आप नया सदस्य जोड़ सकते हैं।</p>
+            <button 
+              onClick={addNewMember} 
+              className="mt-10 px-10 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100"
+            >
+              नया सदस्य जोड़ें
+            </button>
+          </div>
+        ) : voters.length > 0 && (
+          <div className="space-y-8 pb-32">
+            <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4 border-b border-slate-100 pb-6">
+              <div>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tight">मतदाता सूची</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                  <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">{voters.length} कुल रिकॉर्ड पाए गए</p>
+                </div>
+              </div>
               {booth && house && (
-                <button onClick={addNewMember} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 font-bold rounded-lg border border-indigo-100">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+                <button 
+                  onClick={addNewMember} 
+                  className="flex items-center gap-3 px-6 py-3 bg-indigo-50 text-indigo-700 font-black rounded-2xl border border-indigo-100 hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
                   सदस्य जोड़ें
                 </button>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {voters.map((voter) => (
-                <VoterCard key={`${voter.booth}-${voter.voterNo}`} voter={voter} onChange={updateVoter} onDeleteRequest={setVoterToDelete} onDuplicateFound={setDuplicateMember} />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+              {voters.map((voter, index) => (
+                <div key={`${voter.booth}-${voter.voterNo}`} className="card-entry" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <VoterCard 
+                    voter={voter} 
+                    onChange={updateVoter} 
+                    onDeleteRequest={setVoterToDelete} 
+                    onDuplicateFound={setDuplicateMember} 
+                  />
+                </div>
               ))}
             </div>
 
-            <div className="sticky bottom-6 mt-8 flex justify-center z-40">
-              <button onClick={handleSave} disabled={saving} className={`px-10 py-4 rounded-full text-white font-black text-lg shadow-2xl transition-all ${saving ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}>
-                {saving ? 'सहेजा जा रहा है...' : 'डेटा सहेजें'}
+            {/* Bottom Floating Action Bar */}
+            <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[50] w-full max-w-sm px-6">
+              <button 
+                onClick={handleSave} 
+                disabled={saving} 
+                className={`w-full py-5 rounded-[2rem] text-white font-black text-xl shadow-[0_20px_50px_rgba(79,70,229,0.3)] transition-all flex items-center justify-center gap-4 ${
+                  saving ? 'bg-slate-400 cursor-not-allowed scale-95' : 'bg-gradient-to-r from-indigo-600 to-indigo-700 hover:scale-105 active:scale-95'
+                }`}
+              >
+                {saving ? (
+                  <>
+                    <div className="w-6 h-6 border-3 border-white/30 border-t-white animate-spin rounded-full" />
+                    <span>डेटा सुरक्षित हो रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                    <span>डेटा सहेजें</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
         )}
       </main>
 
-      {/* Settings Modal */}
+      {/* Settings Panel - Premium Modal */}
       {showSettings && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
-          <div className="bg-white rounded-[2rem] shadow-2xl max-w-lg w-full overflow-hidden">
-             <div className="bg-indigo-600 p-8 text-white">
-                <h3 className="text-2xl font-black">Backend Settings</h3>
-                <p className="text-indigo-100 text-sm mt-1">Paste your Google Script URL here</p>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] max-w-lg w-full overflow-hidden card-entry">
+             <div className="bg-indigo-600 p-10 text-white relative">
+                <div className="absolute top-0 right-0 p-8">
+                   <button onClick={() => setShowSettings(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-all">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
+                   </button>
+                </div>
+                <h3 className="text-4xl font-black tracking-tight">सेटिंग्स</h3>
+                <p className="text-indigo-100 text-sm mt-2 opacity-80 font-bold uppercase tracking-widest">सिस्टम कॉन्फ़िगरेशन</p>
              </div>
-             <div className="p-8 space-y-6">
-                <input type="text" value={tempUrl} onChange={e => setTempUrl(e.target.value)} placeholder="Script URL..." className="w-full px-4 py-3 bg-gray-50 border-2 rounded-xl focus:border-indigo-600 outline-none font-medium" />
+             <div className="p-10 space-y-8">
+                <div>
+                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Google Script Deployment URL</label>
+                   <input 
+                    type="text" 
+                    value={tempUrl} 
+                    onChange={e => setTempUrl(e.target.value)} 
+                    placeholder="https://script.google.com/..." 
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-600 outline-none font-medium transition-colors" 
+                   />
+                </div>
                 <div className="flex gap-4">
-                   <button onClick={() => setShowSettings(false)} className="flex-1 py-3 bg-gray-100 rounded-xl font-bold">Cancel</button>
-                   <button onClick={handleSaveSettings} className="flex-2 py-3 bg-indigo-600 text-white rounded-xl font-bold">Save & Refresh</button>
+                   <button onClick={() => setShowSettings(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg transition-all hover:bg-slate-200">रद्द करें</button>
+                   <button onClick={handleSaveSettings} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg transition-all hover:bg-indigo-700 shadow-lg shadow-indigo-100">सहेजें और रिफ्रेश करें</button>
                 </div>
              </div>
           </div>
