@@ -8,7 +8,8 @@ const ai = new GoogleGenAI({ apiKey: "AIzaSyDo0hVOtClkyq_DT9VIxOsp-I5jE_l1ahM" }
  */
 export const extractAadharNumber = async (base64Image: string): Promise<string | null> => {
   try {
-    const base64Data = base64Image.split(',')[1];
+    // Strip header if present
+    const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -21,17 +22,18 @@ export const extractAadharNumber = async (base64Image: string): Promise<string |
             }
           },
           {
-            text: "Identify the 12-digit Aadhar number from this cropped Indian Aadhar card image. Return ONLY the 12 digits (no spaces). If not found, return 'NOT_FOUND'."
+            text: "Identify the 12-digit Aadhar number from this cropped Indian Aadhar card image. Return ONLY the 12 digits without any spaces or characters. If no 12-digit number is found, return 'NOT_FOUND'."
           }
         ]
       }]
     });
 
     const result = response.text?.trim() || '';
-    const cleaned = result.replace(/\D/g, '');
-    return cleaned.length === 12 ? cleaned : null;
+    // Use regex to find exactly 12 digits in case the model returns extra text
+    const match = result.match(/\d{12}/);
+    return match ? match[0] : null;
   } catch (error) {
-    console.error("OCR Error:", error);
+    console.error("OCR API Error:", error);
     return null;
   }
 };

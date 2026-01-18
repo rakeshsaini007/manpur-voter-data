@@ -29,7 +29,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, [field]: value });
   };
 
-  // Internal helper to handle Aadhar updates correctly on a specific voter object
   const performAadharUpdate = async (val: string, currentVoter: VoterRecord) => {
     const cleanedVal = formatAadhar(val);
     setLocalAadhar(cleanedVal);
@@ -57,22 +56,20 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   };
 
   const handlePhotoCaptured = async (base64: string) => {
-    // 1. Create the voter object with the new photo
+    // Update photo immediately in UI
     const voterWithPhoto = { ...voter, aadharPhoto: base64 };
-    
-    // 2. Immediately notify parent of the photo update so it shows in placeholder
     onChange(voterWithPhoto);
     
+    // Start OCR process
     setIsExtracting(true);
     try {
       const extracted = await extractAadharNumber(base64);
       if (extracted) {
-        // 3. Update the Aadhar number on top of the voterWithPhoto object 
-        // to prevent overwriting the photo
+        // Update Aadhar on top of the already updated photo state
         await performAadharUpdate(extracted, voterWithPhoto);
       }
     } catch (err) {
-      console.error("Extraction failed", err);
+      console.error("Auto-Type extraction failed:", err);
     } finally {
       setIsExtracting(false);
     }
@@ -80,7 +77,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
 
   return (
     <div className="bg-white rounded-3xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-2xl transition-all duration-500 flex flex-col h-full relative group">
-      {/* Header Info */}
       <div className="bg-indigo-600 px-5 py-3 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
@@ -89,16 +85,11 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
           <span className="text-white font-black text-[10px] tracking-widest uppercase">मतदाता विवरण</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${voter.isNew ? 'bg-green-500 text-white shadow-lg shadow-green-500/30' : 'bg-indigo-400/50 text-white'}`}>
+          <span className={`text-[8px] px-2 py-0.5 rounded-full font-black uppercase tracking-widest ${voter.isNew ? 'bg-green-500 text-white' : 'bg-indigo-400/50 text-white'}`}>
             {voter.isNew ? 'नया' : 'पुराना'}
           </span>
-          <button 
-            onClick={() => onDeleteRequest(voter)}
-            className="text-white/60 hover:text-red-300 transition-colors p-1"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+          <button onClick={() => onDeleteRequest(voter)} className="text-white/60 hover:text-red-300 transition-colors p-1">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
         </div>
       </div>
@@ -108,30 +99,26 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
           <div className="flex-shrink-0">
             <div 
               onClick={() => voter.aadharPhoto ? setIsZoomed(true) : setShowCamera(true)}
-              className={`relative w-28 h-36 rounded-2xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center cursor-pointer shadow-inner group/photo ${voter.aadharPhoto ? 'border-indigo-100 ring-2 ring-indigo-50' : 'border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100'}`}
+              className={`relative w-28 h-36 rounded-2xl border-2 transition-all duration-300 overflow-hidden flex items-center justify-center cursor-pointer shadow-inner group/photo ${voter.aadharPhoto ? 'border-indigo-100 ring-2 ring-indigo-50' : 'border-dashed border-gray-200 bg-gray-50'}`}
             >
               {voter.aadharPhoto ? (
                 <>
-                  <img src={voter.aadharPhoto} alt="Aadhar" className="w-full h-full object-cover transition-transform duration-500 group-hover/photo:scale-110" />
-                  <div className="absolute inset-0 bg-indigo-900/40 opacity-0 group-hover/photo:opacity-100 flex flex-col items-center justify-center transition-opacity gap-1">
+                  <img src={voter.aadharPhoto} alt="Aadhar" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-indigo-900/40 opacity-0 group-hover/photo:opacity-100 flex flex-col items-center justify-center transition-opacity">
                     <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
-                    <span className="text-[8px] text-white font-bold uppercase tracking-widest">क्रॉप्ड फोटो</span>
                   </div>
                 </>
               ) : (
                 <div className="text-center p-3">
-                  <div className="w-10 h-10 bg-indigo-50 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-2 group-hover/photo:scale-110 transition-transform">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  </div>
-                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-tight">आधार कार्ड<br/>क्रॉप करें</p>
+                  <svg className="w-6 h-6 mx-auto mb-2 text-indigo-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">आधार स्कैन</p>
                 </div>
               )}
             </div>
-            
             <div className="mt-3 flex gap-2">
-               <button onClick={() => setShowCamera(true)} className="flex-1 py-1 bg-indigo-50 text-indigo-700 text-[9px] font-black rounded-lg hover:bg-indigo-100 transition-colors uppercase">स्कैन</button>
+               <button onClick={() => setShowCamera(true)} className="flex-1 py-1 bg-indigo-50 text-indigo-700 text-[9px] font-black rounded-lg uppercase">स्कैन</button>
                {voter.aadharPhoto && (
-                 <button onClick={() => handleFieldChange('aadharPhoto', '')} className="px-2 py-1 bg-red-50 text-red-500 text-[9px] font-black rounded-lg hover:bg-red-100 transition-colors">
+                 <button onClick={() => handleFieldChange('aadharPhoto', '')} className="px-2 py-1 bg-red-50 text-red-500 rounded-lg">
                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                  </button>
                )}
@@ -141,11 +128,11 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
           <div className="flex-grow space-y-4">
             <div>
               <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">निर्वाचक का नाम</label>
-              <input type="text" value={voter.name} onChange={(e) => handleFieldChange('name', e.target.value)} className="w-full px-4 py-2 text-sm font-bold text-gray-900 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm" />
+              <input type="text" value={voter.name} onChange={(e) => handleFieldChange('name', e.target.value)} className="w-full px-4 py-2 text-sm font-bold text-gray-900 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <div>
               <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1.5">पिता/पति का नाम</label>
-              <input type="text" value={voter.relationName} onChange={(e) => handleFieldChange('relationName', e.target.value)} className="w-full px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm" />
+              <input type="text" value={voter.relationName} onChange={(e) => handleFieldChange('relationName', e.target.value)} className="w-full px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
           </div>
         </div>
@@ -157,11 +144,11 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
           </div>
           <div className="text-center">
             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">आयु</label>
-            <input type="number" value={voter.originalAge} onChange={(e) => handleFieldChange('originalAge', e.target.value)} className="w-full text-xs font-bold bg-white border rounded-lg py-1.5 text-center shadow-sm" />
+            <input type="number" value={voter.originalAge} onChange={(e) => handleFieldChange('originalAge', e.target.value)} className="w-full text-xs font-bold bg-white border rounded-lg py-1.5 text-center" />
           </div>
           <div className="text-center">
             <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">बूथ/मकान</label>
-            <div className="w-full bg-white border text-indigo-600 rounded-lg py-1.5 text-[10px] font-black shadow-sm">{voter.booth}/{voter.houseNo}</div>
+            <div className="w-full bg-white border text-indigo-600 rounded-lg py-1.5 text-[10px] font-black">{voter.booth}/{voter.houseNo}</div>
           </div>
         </div>
 
@@ -184,13 +171,12 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
               )}
             </div>
           </div>
-          
           <div className="grid grid-cols-2 gap-4">
             <div className="flex-1">
               <label className="block text-[10px] font-bold text-gray-500 mb-1.5 px-1">जन्म तिथि</label>
-              <input type="date" value={localDob} onChange={handleDobChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 text-[11px] font-bold outline-none shadow-sm" />
+              <input type="date" value={localDob} onChange={handleDobChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-indigo-500 text-[11px] font-bold outline-none" />
             </div>
-            <div className="bg-indigo-600 px-4 py-2 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-indigo-600/20 ring-4 ring-indigo-50">
+            <div className="bg-indigo-600 px-4 py-2 rounded-2xl flex flex-col items-center justify-center shadow-lg ring-4 ring-indigo-50">
               <span className="text-[8px] font-black text-indigo-200 uppercase tracking-widest">2026 उम्र</span>
               <span className="text-xl font-black text-white mt-1">{voter.calculatedAge || '—'}</span>
             </div>
@@ -199,7 +185,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
       </div>
 
       {showCamera && <CameraModal onCapture={handlePhotoCaptured} onClose={() => setShowCamera(false)} />}
-
       {isZoomed && voter.aadharPhoto && (
         <div className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4" onClick={() => setIsZoomed(false)}>
           <img src={voter.aadharPhoto} alt="Cropped Aadhar" className="max-w-full max-h-[75vh] rounded-3xl shadow-2xl border-2 border-white/20 object-contain" />
