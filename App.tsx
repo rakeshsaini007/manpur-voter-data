@@ -5,7 +5,6 @@ import { searchVoters, saveVoters, getMetadata, deleteVoter, searchVotersByName 
 import VoterCard from './components/VoterCard.tsx';
 import DuplicateModal from './components/DuplicateModal.tsx';
 import DeleteConfirmModal from './components/DeleteConfirmModal.tsx';
-import { GAS_DEPLOY_URL as DEFAULT_URL } from './constants.ts';
 
 interface Toast {
   message: string;
@@ -30,9 +29,6 @@ const App: React.FC = () => {
   const [voterToDelete, setVoterToDelete] = useState<VoterRecord | null>(null);
   const [searchTriggered, setSearchTriggered] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [tempUrl, setTempUrl] = useState(localStorage.getItem('voter_script_url') || DEFAULT_URL);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -55,13 +51,6 @@ const App: React.FC = () => {
   useEffect(() => {
     fetchMeta();
   }, [fetchMeta]);
-
-  const handleSaveSettings = () => {
-    localStorage.setItem('voter_script_url', tempUrl);
-    setShowSettings(false);
-    showToast('सेटिंग्स अपडेट की गई', 'info');
-    setTimeout(() => window.location.reload(), 1000);
-  };
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -160,7 +149,6 @@ const App: React.FC = () => {
       calculatedAge: '', 
       isNew: true
     };
-    // Fix: Corrected spread syntax to add single object to array
     setVoters(prev => [newVoter, ...prev]);
     showToast('नया सदस्य जोड़ा गया', 'success');
   };
@@ -204,7 +192,6 @@ const App: React.FC = () => {
 
       {/* Main Header */}
       <header className="bg-indigo-950 text-white relative overflow-hidden shrink-0">
-        {/* Abstract Background Decor */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-60 h-60 bg-violet-500/20 rounded-full blur-3xl pointer-events-none" />
         
@@ -221,22 +208,25 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3 w-full md:w-auto">
-              <form onSubmit={handleNameSearch} className="flex-grow md:w-96 relative group">
-                <input 
-                  type="text" 
-                  placeholder="नाम या पिता के नाम से खोजें..." 
-                  value={nameQuery} 
-                  onChange={e => setNameQuery(e.target.value)} 
-                  className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 text-white placeholder-indigo-400 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white/10 transition-all text-sm"
-                />
-                <svg className="w-6 h-6 absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-200 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              <form onSubmit={handleNameSearch} className="flex-grow md:w-96 flex items-center gap-3">
+                <div className="relative flex-grow group">
+                  <input 
+                    type="text" 
+                    placeholder="नाम या पिता के नाम से खोजें..." 
+                    value={nameQuery} 
+                    onChange={e => setNameQuery(e.target.value)} 
+                    className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 text-white placeholder-indigo-400 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white/10 transition-all text-sm"
+                  />
+                  <svg className="w-6 h-6 absolute left-4 top-1/2 -translate-y-1/2 text-indigo-400 group-focus-within:text-indigo-200 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </div>
+                <button 
+                  type="submit" 
+                  disabled={loading || !nameQuery.trim()}
+                  className="p-3.5 bg-indigo-600 border border-indigo-500 rounded-2xl text-white hover:bg-indigo-500 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-indigo-900/20"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                </button>
               </form>
-              <button 
-                onClick={() => setShowSettings(true)} 
-                className="p-3.5 bg-white/5 border border-white/10 rounded-2xl text-indigo-300 hover:bg-white/10 hover:text-white transition-all active:scale-95"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
             </div>
           </div>
 
@@ -382,39 +372,6 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
-
-      {/* Settings Panel - Premium Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-md">
-          <div className="bg-white rounded-[3rem] shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] max-w-lg w-full overflow-hidden card-entry">
-             <div className="bg-indigo-600 p-10 text-white relative">
-                <div className="absolute top-0 right-0 p-8">
-                   <button onClick={() => setShowSettings(false)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-all">
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
-                   </button>
-                </div>
-                <h3 className="text-4xl font-black tracking-tight">सेटिंग्स</h3>
-                <p className="text-indigo-100 text-sm mt-2 opacity-80 font-bold uppercase tracking-widest">सिस्टम कॉन्फ़िगरेशन</p>
-             </div>
-             <div className="p-10 space-y-8">
-                <div>
-                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Google Script Deployment URL</label>
-                   <input 
-                    type="text" 
-                    value={tempUrl} 
-                    onChange={e => setTempUrl(e.target.value)} 
-                    placeholder="https://script.google.com/..." 
-                    className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-600 outline-none font-medium transition-colors" 
-                   />
-                </div>
-                <div className="flex gap-4">
-                   <button onClick={() => setShowSettings(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg transition-all hover:bg-slate-200">रद्द करें</button>
-                   <button onClick={handleSaveSettings} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black text-lg transition-all hover:bg-indigo-700 shadow-lg shadow-indigo-100">सहेजें और रिफ्रेश करें</button>
-                </div>
-             </div>
-          </div>
-        </div>
-      )}
 
       <DuplicateModal member={duplicateMember} onClose={() => setDuplicateMember(null)} />
       <DeleteConfirmModal voter={voterToDelete} onClose={() => setVoterToDelete(null)} onConfirm={handleDeleteVoter} />
