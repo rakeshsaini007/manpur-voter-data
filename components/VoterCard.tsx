@@ -34,15 +34,18 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     const cleanedVal = formatAadhar(val);
     setLocalAadhar(cleanedVal);
     
-    const updated = { ...currentVoter, aadhar: cleanedVal };
-    onChange(updated);
-
     if (cleanedVal.length === 12) {
       const check = await checkDuplicateAadhar(cleanedVal, currentVoter.voterNo);
       if (check.isDuplicate) {
+        // RESET: Clear local and parent state if duplicate found during manual entry
+        setLocalAadhar('');
+        onChange({ ...currentVoter, aadhar: '' });
         onDuplicateFound(check.member);
+        return;
       }
     }
+    
+    onChange({ ...currentVoter, aadhar: cleanedVal });
   };
 
   const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,33 +101,42 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     try {
       const extracted = await extractAadharData(voter.aadharPhoto);
       
-      // CRITICAL: Prepare the update object first
-      let updatedVoter = { ...voter };
-      let newAadhar = null;
-      
-      if (extracted.aadhar) {
-        newAadhar = formatAadhar(extracted.aadhar);
-        setLocalAadhar(newAadhar);
-        updatedVoter.aadhar = newAadhar;
-      }
+      let newAadhar = extracted.aadhar ? formatAadhar(extracted.aadhar) : null;
+      let newDob = extracted.dob || null;
 
-      if (extracted.dob) {
-        setLocalDob(extracted.dob);
-        updatedVoter.dob = extracted.dob;
-        updatedVoter.calculatedAge = calculateAgeAsOf2026(extracted.dob);
-      }
-
-      // Sync with parent immediately. This ensures that if onDuplicateFound 
-      // triggers a re-render, the card props already have the new values.
-      onChange(updatedVoter);
-
-      // Now check for duplicates after values are safely stored in parent state
+      // Validate Aadhar before applying to state
       if (newAadhar && newAadhar.length === 12) {
         const check = await checkDuplicateAadhar(newAadhar, voter.voterNo);
         if (check.isDuplicate) {
+          // RESET ALL: Clear local state and notify parent to clear the card data
+          setLocalAadhar('');
+          setLocalDob('');
+          onChange({ 
+            ...voter, 
+            aadhar: '', 
+            dob: '', 
+            calculatedAge: '', 
+            aadharPhoto: undefined // Also clear the photo if it's a duplicate card
+          });
           onDuplicateFound(check.member);
+          setIsExtracting(false);
+          return;
         }
       }
+
+      // If not duplicate, proceed with population
+      let updatedVoter = { ...voter };
+      if (newAadhar) {
+        setLocalAadhar(newAadhar);
+        updatedVoter.aadhar = newAadhar;
+      }
+      if (newDob) {
+        setLocalDob(newDob);
+        updatedVoter.dob = newDob;
+        updatedVoter.calculatedAge = calculateAgeAsOf2026(newDob);
+      }
+
+      onChange(updatedVoter);
     } catch (err) {
       console.error("OCR Extraction failed:", err);
     } finally {
