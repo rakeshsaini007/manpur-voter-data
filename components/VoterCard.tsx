@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { VoterRecord } from '../types.ts';
 import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
 import { checkDuplicateAadhar } from '../services/api.ts';
@@ -19,6 +19,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   const [showCamera, setShowCamera] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLocalAadhar(voter.aadhar || '');
@@ -58,7 +59,22 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   const handlePhotoCaptured = (base64: string) => {
     const voterWithPhoto = { ...voter, aadharPhoto: base64 };
     onChange(voterWithPhoto);
-    // Removed automatic extraction to allow manual trigger via button
+  };
+
+  const handleDeletePhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onChange({ ...voter, aadharPhoto: undefined });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handlePhotoCaptured(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleManualOCR = async () => {
@@ -75,7 +91,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
         setLocalAadhar(cleanedAadhar);
         updatedVoter.aadhar = cleanedAadhar;
 
-        // Check for duplicates immediately if aadhar found
         const check = await checkDuplicateAadhar(cleanedAadhar, voter.voterNo);
         if (check.isDuplicate) {
           onDuplicateFound(check.member);
@@ -132,22 +147,46 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
                       <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" /></svg>
                     </div>
                   </div>
+                  {/* Delete Image Button */}
+                  <button 
+                    onClick={handleDeletePhoto}
+                    className="absolute top-2 right-2 w-8 h-8 bg-rose-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:bg-rose-600 transition-colors z-20"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
                 </>
               ) : (
                 <div className="text-center p-4">
                   <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <svg className="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   </div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">स्कैन करें</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">स्कैन/अपलोड</p>
                 </div>
               )}
             </div>
+            
             <div className="absolute -bottom-3 -right-3 flex gap-2">
+               {/* Hidden File Input for Reupload */}
+               <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload} 
+                accept="image/*" 
+                className="hidden" 
+               />
+               <button 
+                onClick={() => fileInputRef.current?.click()} 
+                className="w-10 h-10 bg-slate-800 text-white rounded-2xl flex items-center justify-center shadow-lg hover:bg-slate-900 active:scale-90 transition-all border-4 border-white"
+                title="फोटो अपलोड करें"
+               >
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+               </button>
                <button 
                 onClick={() => setShowCamera(true)} 
                 className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg hover:bg-indigo-700 active:scale-90 transition-all border-4 border-white"
+                title="कैमरा खोलें"
                >
-                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                </button>
             </div>
           </div>
