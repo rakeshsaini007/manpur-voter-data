@@ -56,16 +56,13 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   };
 
   const handlePhotoCaptured = async (base64: string) => {
-    // Update photo immediately in UI
     const voterWithPhoto = { ...voter, aadharPhoto: base64 };
     onChange(voterWithPhoto);
     
-    // Start OCR process
     setIsExtracting(true);
     try {
       const extracted = await extractAadharNumber(base64);
       if (extracted) {
-        // Update Aadhar on top of the already updated photo state
         await performAadharUpdate(extracted, voterWithPhoto);
       }
     } catch (err) {
@@ -137,18 +134,22 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 p-4 bg-gray-50/50 rounded-2xl border border-gray-100/50">
+        <div className="grid grid-cols-4 gap-2 p-3 bg-gray-50/50 rounded-2xl border border-gray-100/50">
           <div className="text-center">
-            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">लिंग</label>
-            <select value={voter.gender} onChange={(e) => handleFieldChange('gender', e.target.value)} className="w-full text-xs font-bold bg-white border rounded-lg py-1.5 text-center appearance-none shadow-sm"><option value="पु">पु</option><option value="म">म</option><option value="अन्य">अन्य</option></select>
+            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">लिंग</label>
+            <select value={voter.gender} onChange={(e) => handleFieldChange('gender', e.target.value)} className="w-full text-[10px] font-bold bg-white border rounded-lg py-1 text-center appearance-none shadow-sm"><option value="पु">पु</option><option value="म">म</option><option value="अन्य">अन्य</option></select>
           </div>
           <div className="text-center">
-            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">आयु</label>
-            <input type="number" value={voter.originalAge} onChange={(e) => handleFieldChange('originalAge', e.target.value)} className="w-full text-xs font-bold bg-white border rounded-lg py-1.5 text-center" />
+            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">आयु</label>
+            <input type="number" value={voter.originalAge} onChange={(e) => handleFieldChange('originalAge', e.target.value)} className="w-full text-[10px] font-bold bg-white border rounded-lg py-1 text-center" />
           </div>
           <div className="text-center">
-            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-wider mb-1">बूथ/मकान</label>
-            <div className="w-full bg-white border text-indigo-600 rounded-lg py-1.5 text-[10px] font-black">{voter.booth}/{voter.houseNo}</div>
+            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">बूथ/मकान</label>
+            <div className="w-full bg-white border text-indigo-600 rounded-lg py-1 text-[9px] font-black truncate">{voter.booth}/{voter.houseNo}</div>
+          </div>
+          <div className="text-center">
+            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">वार्ड संख्या</label>
+            <input type="text" value={voter.ward} onChange={(e) => handleFieldChange('ward', e.target.value)} className="w-full text-[10px] font-bold bg-white border text-indigo-900 rounded-lg py-1 text-center outline-none focus:ring-1 focus:ring-indigo-300" placeholder="वार्ड" />
           </div>
         </div>
 

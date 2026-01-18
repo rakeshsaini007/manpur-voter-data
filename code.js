@@ -1,7 +1,9 @@
 
 /**
  * GOOGLE APPS SCRIPT BACKEND
- * Use this version to ensure photos are saved correctly.
+ * Use this version to ensure photos and Ward field are handled correctly.
+ * Expected Column Order:
+ * A: Booth, B: Ward, C: VoterNo, D: HouseNo, E: Name, F: Relation, G: Gender, H: Age, I: Aadhar, J: DOB, K: CalcAge, L: Photo
  */
 
 const SHEET_NAME = 'Sheet1'; 
@@ -35,7 +37,7 @@ function handleGetMetadata() {
   const boothMap = {};
   for (let i = 1; i < data.length; i++) {
     const booth = String(data[i][0]).trim();
-    const house = String(data[i][2]).trim();
+    const house = String(data[i][3]).trim(); // Shifted HouseNo to Column D (index 3)
     if (booth && house) {
       if (!boothMap[booth]) boothMap[booth] = new Set();
       boothMap[booth].add(house);
@@ -54,7 +56,7 @@ function handleSearch(booth, house) {
   const results = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (String(row[0]).trim() === String(booth).trim() && String(row[2]).trim() === String(house).trim()) {
+    if (String(row[0]).trim() === String(booth).trim() && String(row[3]).trim() === String(house).trim()) {
       results.push(mapRowToVoter(row, i + 1));
     }
   }
@@ -70,8 +72,8 @@ function handleSearchByName(query) {
   const results = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const name = String(row[3]).toLowerCase();
-    const rel = String(row[4]).toLowerCase();
+    const name = String(row[4]).toLowerCase(); // Name shifted to Column E (index 4)
+    const rel = String(row[5]).toLowerCase();  // Relation shifted to Column F (index 5)
     if (name.indexOf(q) !== -1 || rel.indexOf(q) !== -1) results.push(mapRowToVoter(row, i + 1));
   }
   return createJsonResponse({ success: true, data: results });
@@ -80,16 +82,17 @@ function handleSearchByName(query) {
 function mapRowToVoter(row, rowIdx) {
   return {
     booth: String(row[0] || ''),
-    voterNo: String(row[1] || ''),
-    houseNo: String(row[2] || ''),
-    name: String(row[3] || ''),
-    relationName: String(row[4] || ''),
-    gender: String(row[5] || ''),
-    originalAge: String(row[6] || ''),
-    aadhar: String(row[7] || ''),
-    dob: String(row[8] ? Utilities.formatDate(new Date(row[8]), "GMT+5:30", "yyyy-MM-dd") : ''),
-    calculatedAge: String(row[9] || ''),
-    aadharPhoto: String(row[10] || ''),
+    ward: String(row[1] || ''),
+    voterNo: String(row[2] || ''),
+    houseNo: String(row[3] || ''),
+    name: String(row[4] || ''),
+    relationName: String(row[5] || ''),
+    gender: String(row[6] || ''),
+    originalAge: String(row[7] || ''),
+    aadhar: String(row[8] || ''),
+    dob: String(row[9] ? Utilities.formatDate(new Date(row[9]), "GMT+5:30", "yyyy-MM-dd") : ''),
+    calculatedAge: String(row[10] || ''),
+    aadharPhoto: String(row[11] || ''),
     rowIdx: rowIdx
   };
 }
@@ -99,7 +102,7 @@ function handleCheckAadhar(aadhar, currentVoterNo) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][7]) === String(aadhar) && String(data[i][1]) !== String(currentVoterNo)) {
+    if (String(data[i][8]) === String(aadhar) && String(data[i][2]) !== String(currentVoterNo)) { // Aadhar index 8, VoterNo index 2
       return createJsonResponse({ isDuplicate: true, member: mapRowToVoter(data[i], i + 1) });
     }
   }
@@ -111,43 +114,42 @@ function handleSave(voters) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
   
-  // Ensure we have at least 11 columns for the photo
-  if (sheet.getLastColumn() < 11) {
-    sheet.getRange(1, 11).setValue('Photo');
+  // Ensure we have at least 12 columns
+  if (sheet.getLastColumn() < 12) {
+    sheet.getRange(1, 1).setValue('Booth');
+    sheet.getRange(1, 2).setValue('Ward');
+    sheet.getRange(1, 12).setValue('Photo');
   }
 
   let newVotersSheet = ss.getSheetByName(NEW_VOTERS_SHEET_NAME);
   if (!newVotersSheet) {
     newVotersSheet = ss.insertSheet(NEW_VOTERS_SHEET_NAME);
-    const headers = ["Booth", "VoterNo", "HouseNo", "Name", "Relation", "Gender", "Age", "Aadhar", "DOB", "CalcAge", "Photo", "AddedOn"];
+    const headers = ["Booth", "Ward", "VoterNo", "HouseNo", "Name", "Relation", "Gender", "Age", "Aadhar", "DOB", "CalcAge", "Photo", "AddedOn"];
     newVotersSheet.appendRow(headers);
   }
   
   voters.forEach(v => {
     let rowIndex = -1;
     for (let i = 1; i < dataRows.length; i++) {
-      if (String(dataRows[i][0]) === String(v.booth) && String(dataRows[i][1]) === String(v.voterNo)) {
+      if (String(dataRows[i][0]) === String(v.booth) && String(dataRows[i][2]) === String(v.voterNo)) {
         rowIndex = i + 1;
         break;
       }
     }
     
-    // Safety check for Sheets cell character limit
     let photoData = v.aadharPhoto || '';
-    if (photoData.length > 50000) {
-      photoData = photoData.substring(0, 49990); 
-    }
+    if (photoData.length > 50000) photoData = photoData.substring(0, 49990); 
 
     const rowValues = [
-      v.booth, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge, photoData
+      v.booth, v.ward, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge, photoData
     ];
 
     if (rowIndex > 0) {
-      sheet.getRange(rowIndex, 1, 1, 11).setValues([rowValues]);
+      sheet.getRange(rowIndex, 1, 1, 12).setValues([rowValues]);
     } else {
       sheet.appendRow(rowValues);
       const logRow = [...rowValues];
-      logRow[11] = new Date(); 
+      logRow[12] = new Date(); 
       newVotersSheet.appendRow(logRow);
     }
   });
@@ -162,21 +164,21 @@ function handleDelete(booth, voterNo, reason) {
   let deletedSheet = ss.getSheetByName(DELETED_SHEET_NAME);
   if (!deletedSheet) {
     deletedSheet = ss.insertSheet(DELETED_SHEET_NAME);
-    const headers = ["Booth", "VoterNo", "HouseNo", "Name", "Relation", "Gender", "Age", "Aadhar", "DOB", "CalcAge", "Photo", "Reason", "Time"];
+    const headers = ["Booth", "Ward", "VoterNo", "HouseNo", "Name", "Relation", "Gender", "Age", "Aadhar", "DOB", "CalcAge", "Photo", "Reason", "Time"];
     deletedSheet.appendRow(headers);
   }
   let rowIndex = -1;
   for (let i = 1; i < dataRows.length; i++) {
-    if (String(dataRows[i][0]) === String(booth) && String(dataRows[i][1]) === String(voterNo)) {
+    if (String(dataRows[i][0]) === String(booth) && String(dataRows[i][2]) === String(voterNo)) {
       rowIndex = i + 1;
       break;
     }
   }
   if (rowIndex > 0) {
     const rowValues = [...dataRows[rowIndex - 1]];
-    while(rowValues.length < 11) rowValues.push('');
-    rowValues[11] = reason || 'N/A';
-    rowValues[12] = new Date();
+    while(rowValues.length < 12) rowValues.push('');
+    rowValues[12] = reason || 'N/A';
+    rowValues[13] = new Date();
     deletedSheet.appendRow(rowValues);
     sheet.deleteRow(rowIndex);
     return createJsonResponse({ success: true, message: 'हटाया गया' });

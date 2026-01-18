@@ -1,6 +1,7 @@
 
 export interface VoterRecord {
   booth: string;          // बूथ संख्या
+  ward: string;           // वार्ड संख्या
   voterNo: string;        // मतदाता क्रमांक
   houseNo: string;        // मकान नं०
   name: string;           // निर्वाचक का नाम

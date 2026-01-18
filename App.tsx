@@ -119,8 +119,23 @@ const App: React.FC = () => {
     const nextVoterNo = voters.length > 0 
       ? (Math.max(...voters.map(v => parseInt(v.voterNo) || 0)) + 1).toString()
       : '1';
+    
+    // Get ward from existing list if available
+    const currentWard = voters.length > 0 ? voters[0].ward : '';
+
     const newVoter: VoterRecord = {
-      booth, houseNo: house, voterNo: nextVoterNo, name: '', relationName: '', gender: 'पु', originalAge: '0', aadhar: '', dob: '', calculatedAge: '', isNew: true
+      booth, 
+      ward: currentWard,
+      houseNo: house, 
+      voterNo: nextVoterNo, 
+      name: '', 
+      relationName: '', 
+      gender: 'पु', 
+      originalAge: '0', 
+      aadhar: '', 
+      dob: '', 
+      calculatedAge: '', 
+      isNew: true
     };
     setVoters(prev => [...prev, newVoter]);
   };
