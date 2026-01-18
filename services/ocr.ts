@@ -1,7 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: "AIzaSyDxsYBWWbEYfSw-d1SZ3Qf0pi3-sxkA73g" });
+const ai = new GoogleGenAI({ apiKey: "AIzaSyD4wY1as79mXvvem-laSMf60T5IIskXZGw" });
 
 /**
  * Extracts a 12-digit Aadhar number from a base64 image string.
