@@ -46,7 +46,7 @@ function handleGetMetadata() {
       boothSet.add(booth);
       
       if (!wardMap[booth]) wardMap[booth] = new Set();
-      wardMap[booth].add(ward); // Even add empty ward if it exists
+      wardMap[booth].add(ward); 
       
       const key = booth + "_" + ward;
       if (!houseMap[key]) houseMap[key] = new Set();
@@ -109,7 +109,7 @@ function handleSearchByName(query) {
     const rel = String(row[5] || '').toLowerCase();
     if (name.indexOf(q) !== -1 || rel.indexOf(q) !== -1) results.push(mapRowToVoter(row, i + 1));
   }
-  return createJsonResponse({ success: true, data: results });
+  return createJsonResponse({ success: true, data: [] });
 }
 
 function mapRowToVoter(row, rowIdx) {
@@ -169,8 +169,12 @@ function handleSave(voters) {
       }
     }
     
+    // Safety truncation at 50k to prevent script crashes, 
+    // but the frontend is now optimized to stay well below this.
     let photoData = v.aadharPhoto || '';
-    if (photoData.length > 50000) photoData = photoData.substring(0, 49990); 
+    if (photoData.length > 50000) {
+       photoData = photoData.substring(0, 49990);
+    }
 
     const rowValues = [
       v.booth, v.ward, v.voterNo, v.houseNo, v.name, v.relationName, v.gender, v.originalAge, v.aadhar, v.dob, v.calculatedAge, photoData
