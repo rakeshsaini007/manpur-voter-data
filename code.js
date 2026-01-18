@@ -38,16 +38,17 @@ function handleGetMetadata() {
   const houseMap = {}; // booth_ward -> Set(houses)
 
   for (let i = 1; i < data.length; i++) {
-    const booth = String(data[i][0]).trim();
-    const ward = String(data[i][1]).trim();
-    const house = String(data[i][3]).trim();
+    const booth = String(data[i][0] || '').trim();
+    const ward = String(data[i][1] || '').trim();
+    const house = String(data[i][3] || '').trim();
     
     if (booth) {
       boothSet.add(booth);
-      if (!wardMap[booth]) wardMap[booth] = new Set();
-      if (ward) wardMap[booth].add(ward);
       
-      const key = booth + "_" + (ward || "default");
+      if (!wardMap[booth]) wardMap[booth] = new Set();
+      wardMap[booth].add(ward); // Even add empty ward if it exists
+      
+      const key = booth + "_" + ward;
       if (!houseMap[key]) houseMap[key] = new Set();
       if (house) houseMap[key].add(house);
     }
@@ -77,13 +78,18 @@ function handleSearch(booth, ward, house) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   const results = [];
+  
+  const targetBooth = String(booth || '').trim();
+  const targetWard = String(ward || '').trim();
+  const targetHouse = String(house || '').trim();
+
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const matchBooth = String(row[0]).trim() === String(booth).trim();
-    const matchWard = String(row[1]).trim() === String(ward).trim();
-    const matchHouse = String(row[3]).trim() === String(house).trim();
+    const rowBooth = String(row[0] || '').trim();
+    const rowWard = String(row[1] || '').trim();
+    const rowHouse = String(row[3] || '').trim();
     
-    if (matchBooth && matchWard && matchHouse) {
+    if (rowBooth === targetBooth && rowWard === targetWard && rowHouse === targetHouse) {
       results.push(mapRowToVoter(row, i + 1));
     }
   }
@@ -99,8 +105,8 @@ function handleSearchByName(query) {
   const results = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const name = String(row[4]).toLowerCase();
-    const rel = String(row[5]).toLowerCase();
+    const name = String(row[4] || '').toLowerCase();
+    const rel = String(row[5] || '').toLowerCase();
     if (name.indexOf(q) !== -1 || rel.indexOf(q) !== -1) results.push(mapRowToVoter(row, i + 1));
   }
   return createJsonResponse({ success: true, data: results });
