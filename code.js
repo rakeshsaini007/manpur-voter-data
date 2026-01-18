@@ -1,9 +1,7 @@
 
 /**
  * GOOGLE APPS SCRIPT BACKEND
- * Use this version to ensure photos and Ward field are handled correctly.
- * Expected Column Order:
- * A: Booth, B: Ward, C: VoterNo, D: HouseNo, E: Name, F: Relation, G: Gender, H: Age, I: Aadhar, J: DOB, K: CalcAge, L: Photo
+ * Column Order: A:Booth, B:Ward, C:VoterNo, D:HouseNo, E:Name, F:Relation, G:Gender, H:Age, I:Aadhar, J:DOB, K:CalcAge, L:Photo
  */
 
 const SHEET_NAME = 'Sheet1'; 
@@ -12,7 +10,7 @@ const NEW_VOTERS_SHEET_NAME = 'NewVoters';
 
 function doGet(e) {
   const action = e.parameter.action;
-  if (action === 'search') return handleSearch(e.parameter.booth, e.parameter.house);
+  if (action === 'search') return handleSearch(e.parameter.booth, e.parameter.ward, e.parameter.house);
   if (action === 'searchByName') return handleSearchByName(e.parameter.query);
   if (action === 'checkAadhar') return handleCheckAadhar(e.parameter.aadhar, e.parameter.voterNo);
   if (action === 'getMetadata') return handleGetMetadata();
@@ -34,29 +32,58 @@ function handleGetMetadata() {
   const sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) return createJsonResponse({ success: false, error: 'Sheet1 not found' });
   const data = sheet.getDataRange().getValues();
-  const boothMap = {};
+  
+  const boothSet = new Set();
+  const wardMap = {}; // booth -> Set(wards)
+  const houseMap = {}; // booth_ward -> Set(houses)
+
   for (let i = 1; i < data.length; i++) {
     const booth = String(data[i][0]).trim();
-    const house = String(data[i][3]).trim(); // Shifted HouseNo to Column D (index 3)
-    if (booth && house) {
-      if (!boothMap[booth]) boothMap[booth] = new Set();
-      boothMap[booth].add(house);
+    const ward = String(data[i][1]).trim();
+    const house = String(data[i][3]).trim();
+    
+    if (booth) {
+      boothSet.add(booth);
+      if (!wardMap[booth]) wardMap[booth] = new Set();
+      if (ward) wardMap[booth].add(ward);
+      
+      const key = booth + "_" + (ward || "default");
+      if (!houseMap[key]) houseMap[key] = new Set();
+      if (house) houseMap[key].add(house);
     }
   }
-  const formattedMap = {};
-  const booths = Object.keys(boothMap).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
-  booths.forEach(b => { formattedMap[b] = Array.from(boothMap[b]).sort((a,b) => a.localeCompare(b, undefined, {numeric: true})); });
-  return createJsonResponse({ success: true, booths, houseMap: formattedMap });
+
+  const formattedWardMap = {};
+  const formattedHouseMap = {};
+  
+  Object.keys(wardMap).forEach(b => {
+    formattedWardMap[b] = Array.from(wardMap[b]).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+  });
+  
+  Object.keys(houseMap).forEach(key => {
+    formattedHouseMap[key] = Array.from(houseMap[key]).sort((a,b) => a.localeCompare(b, undefined, {numeric: true}));
+  });
+
+  return createJsonResponse({ 
+    success: true, 
+    booths: Array.from(boothSet).sort((a,b) => a.localeCompare(b, undefined, {numeric: true})), 
+    wardMap: formattedWardMap,
+    houseMap: formattedHouseMap 
+  });
 }
 
-function handleSearch(booth, house) {
+function handleSearch(booth, ward, house) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   const results = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    if (String(row[0]).trim() === String(booth).trim() && String(row[3]).trim() === String(house).trim()) {
+    const matchBooth = String(row[0]).trim() === String(booth).trim();
+    const matchWard = String(row[1]).trim() === String(ward).trim();
+    const matchHouse = String(row[3]).trim() === String(house).trim();
+    
+    if (matchBooth && matchWard && matchHouse) {
       results.push(mapRowToVoter(row, i + 1));
     }
   }
@@ -72,8 +99,8 @@ function handleSearchByName(query) {
   const results = [];
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
-    const name = String(row[4]).toLowerCase(); // Name shifted to Column E (index 4)
-    const rel = String(row[5]).toLowerCase();  // Relation shifted to Column F (index 5)
+    const name = String(row[4]).toLowerCase();
+    const rel = String(row[5]).toLowerCase();
     if (name.indexOf(q) !== -1 || rel.indexOf(q) !== -1) results.push(mapRowToVoter(row, i + 1));
   }
   return createJsonResponse({ success: true, data: results });
@@ -102,7 +129,7 @@ function handleCheckAadhar(aadhar, currentVoterNo) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (String(data[i][8]) === String(aadhar) && String(data[i][2]) !== String(currentVoterNo)) { // Aadhar index 8, VoterNo index 2
+    if (String(data[i][8]) === String(aadhar) && String(data[i][2]) !== String(currentVoterNo)) {
       return createJsonResponse({ isDuplicate: true, member: mapRowToVoter(data[i], i + 1) });
     }
   }
@@ -114,7 +141,6 @@ function handleSave(voters) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const dataRows = sheet.getDataRange().getValues();
   
-  // Ensure we have at least 12 columns
   if (sheet.getLastColumn() < 12) {
     sheet.getRange(1, 1).setValue('Booth');
     sheet.getRange(1, 2).setValue('Ward');

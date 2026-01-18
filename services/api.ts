@@ -2,12 +2,17 @@
 import { VoterRecord, ApiSearchResponse, ApiSaveResponse } from '../types.ts';
 import { GAS_DEPLOY_URL as DEFAULT_URL } from '../constants.ts';
 
-// Get URL from localStorage or fallback to default
 const getBaseUrl = () => {
   return localStorage.getItem('voter_script_url') || DEFAULT_URL;
 };
 
-export const getMetadata = async (): Promise<{ success: boolean; booths: string[]; houseMap: Record<string, string[]>; error?: string }> => {
+export const getMetadata = async (): Promise<{ 
+  success: boolean; 
+  booths: string[]; 
+  wardMap: Record<string, string[]>; 
+  houseMap: Record<string, string[]>; 
+  error?: string 
+}> => {
   try {
     const url = `${getBaseUrl()}?action=getMetadata`;
     const response = await fetch(url);
@@ -16,13 +21,13 @@ export const getMetadata = async (): Promise<{ success: boolean; booths: string[
     return result;
   } catch (error) {
     console.error('Metadata Error:', error);
-    return { success: false, booths: [], houseMap: {}, error: 'कनेक्शन विफल: कृपया सेटिंग्स में सही "Script URL" जाँचें।' };
+    return { success: false, booths: [], wardMap: {}, houseMap: {}, error: 'कनेक्शन विफल: कृपया सेटिंग्स में सही "Script URL" जाँचें।' };
   }
 };
 
-export const searchVoters = async (booth: string, house: string): Promise<ApiSearchResponse> => {
+export const searchVoters = async (booth: string, ward: string, house: string): Promise<ApiSearchResponse> => {
   try {
-    const url = `${getBaseUrl()}?action=search&booth=${encodeURIComponent(booth)}&house=${encodeURIComponent(house)}`;
+    const url = `${getBaseUrl()}?action=search&booth=${encodeURIComponent(booth)}&ward=${encodeURIComponent(ward)}&house=${encodeURIComponent(house)}`;
     const response = await fetch(url);
     const result = await response.json();
     return result;
@@ -46,13 +51,10 @@ export const searchVotersByName = async (query: string): Promise<ApiSearchRespon
 
 export const saveVoters = async (voters: VoterRecord[]): Promise<ApiSaveResponse> => {
   try {
-    // We send as plain text to avoid CORS preflight (OPTIONS request) 
-    // which GAS doesn't handle natively. GAS parses the body in doPost(e).
     const response = await fetch(getBaseUrl(), {
       method: 'POST',
       body: JSON.stringify({ action: 'save', data: voters }),
     });
-    
     const result = await response.json();
     return result;
   } catch (error) {

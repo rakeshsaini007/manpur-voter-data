@@ -143,13 +143,11 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
             <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">आयु</label>
             <input type="number" value={voter.originalAge} onChange={(e) => handleFieldChange('originalAge', e.target.value)} className="w-full text-[10px] font-bold bg-white border rounded-lg py-1 text-center" />
           </div>
-          <div className="text-center">
-            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">बूथ/मकान</label>
-            <div className="w-full bg-white border text-indigo-600 rounded-lg py-1 text-[9px] font-black truncate">{voter.booth}/{voter.houseNo}</div>
-          </div>
-          <div className="text-center">
-            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">वार्ड संख्या</label>
-            <input type="text" value={voter.ward} onChange={(e) => handleFieldChange('ward', e.target.value)} className="w-full text-[10px] font-bold bg-white border text-indigo-900 rounded-lg py-1 text-center outline-none focus:ring-1 focus:ring-indigo-300" placeholder="वार्ड" />
+          <div className="col-span-2 text-center">
+            <label className="block text-[7px] font-black text-gray-400 uppercase tracking-wider mb-1">बूथ/वार्ड/मकान</label>
+            <div className="w-full bg-white border text-indigo-600 rounded-lg py-1 text-[9px] font-black truncate shadow-sm">
+              {voter.booth}/{voter.ward}/{voter.houseNo}
+            </div>
           </div>
         </div>
 

@@ -8,7 +8,6 @@ const ai = new GoogleGenAI({ apiKey: "AIzaSyDo0hVOtClkyq_DT9VIxOsp-I5jE_l1ahM" }
  */
 export const extractAadharNumber = async (base64Image: string): Promise<string | null> => {
   try {
-    // Strip header if present
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     
     const response = await ai.models.generateContent({
@@ -29,7 +28,6 @@ export const extractAadharNumber = async (base64Image: string): Promise<string |
     });
 
     const result = response.text?.trim() || '';
-    // Use regex to find exactly 12 digits in case the model returns extra text
     const match = result.match(/\d{12}/);
     return match ? match[0] : null;
   } catch (error) {
