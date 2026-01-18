@@ -7,7 +7,7 @@ import { GoogleGenAI } from "@google/genai";
 export const extractAadharNumber = async (base64Image: string): Promise<string | null> => {
   try {
     // Correctly initialize GoogleGenAI with the environment variable
-    const ai = new GoogleGenAI({ apiKey: "AIzaSyDo0hVOtClkyq_DT9VIxOsp-I5jE_l1ahM" });
+    const ai = new GoogleGenAI({ apiKey: "AIzaSyDxsYBWWbEYfSw-d1SZ3Qf0pi3-sxkA73g" });
     
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
     
