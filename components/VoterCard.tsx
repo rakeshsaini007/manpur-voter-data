@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { VoterRecord } from '../types.ts';
 import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
 import { checkDuplicateAadhar } from '../services/api.ts';
-import { extractAadharNumber } from '../services/ocr.ts';
+import { extractAadharData } from '../services/ocr.ts';
 import CameraModal from './CameraModal.tsx';
 
 interface VoterCardProps {
@@ -61,10 +61,29 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     
     setIsExtracting(true);
     try {
-      const extracted = await extractAadharNumber(base64);
-      if (extracted) {
-        await performAadharUpdate(extracted, voterWithPhoto);
+      const extracted = await extractAadharData(base64);
+      
+      let updatedVoter = { ...voterWithPhoto };
+      
+      if (extracted.aadhar) {
+        const cleanedAadhar = formatAadhar(extracted.aadhar);
+        setLocalAadhar(cleanedAadhar);
+        updatedVoter.aadhar = cleanedAadhar;
+
+        // Check for duplicates immediately if aadhar found
+        const check = await checkDuplicateAadhar(cleanedAadhar, voter.voterNo);
+        if (check.isDuplicate) {
+          onDuplicateFound(check.member);
+        }
       }
+
+      if (extracted.dob) {
+        setLocalDob(extracted.dob);
+        updatedVoter.dob = extracted.dob;
+        updatedVoter.calculatedAge = calculateAgeAsOf2026(extracted.dob);
+      }
+
+      onChange(updatedVoter);
     } catch (err) {
       console.error("OCR Extraction failed:", err);
     } finally {
