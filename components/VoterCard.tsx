@@ -55,15 +55,20 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, dob: val, calculatedAge: age });
   };
 
-  const handlePhotoCaptured = async (base64: string) => {
+  const handlePhotoCaptured = (base64: string) => {
     const voterWithPhoto = { ...voter, aadharPhoto: base64 };
     onChange(voterWithPhoto);
-    
+    // Removed automatic extraction to allow manual trigger via button
+  };
+
+  const handleManualOCR = async () => {
+    if (!voter.aadharPhoto || isExtracting) return;
+
     setIsExtracting(true);
     try {
-      const extracted = await extractAadharData(base64);
+      const extracted = await extractAadharData(voter.aadharPhoto);
       
-      let updatedVoter = { ...voterWithPhoto };
+      let updatedVoter = { ...voter };
       
       if (extracted.aadhar) {
         const cleanedAadhar = formatAadhar(extracted.aadhar);
@@ -187,10 +192,37 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
 
         {/* ID Details Section */}
         <div className="bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100 space-y-6">
+          {/* AI OCR Trigger Button */}
+          {voter.aadharPhoto && (
+            <div className="flex justify-center -mt-3">
+              <button 
+                onClick={handleManualOCR}
+                disabled={isExtracting}
+                className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
+                  isExtracting 
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:shadow-indigo-200 hover:scale-105'
+                }`}
+              >
+                {isExtracting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent animate-spin rounded-full" />
+                    <span>डेटा निकाला जा रहा है...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    <span>AI से डेटा भरें</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           <div className="relative group/id">
             <div className="flex justify-between items-center mb-2 px-1">
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">आधार संख्या (12 अंक)</label>
-              {isExtracting && <span className="text-[10px] font-black text-indigo-600 animate-pulse uppercase tracking-widest">विश्लेषण...</span>}
+              {isExtracting && <span className="text-[10px] font-black text-indigo-600 animate-pulse uppercase tracking-widest">AI सक्रिय...</span>}
             </div>
             <div className="relative">
               <input 
