@@ -1,5 +1,5 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 interface ExtractedData {
   aadhar: string | null;
@@ -28,26 +28,46 @@ export const extractAadharData = async (base64Image: string): Promise<ExtractedD
             }
           },
           {
-            text: "Extract the 12-digit Aadhar number and the Date of Birth (DOB) from this image. Format the output as a JSON object with keys 'aadhar' (12 digits string, no spaces) and 'dob' (string in DD/MM/YYYY format). Only return the JSON object."
+            text: "Extract the 12-digit Aadhar number (numeric only) and the Date of Birth (DOB) from this Aadhar card image. Return the DOB in DD/MM/YYYY format."
           }
         ]
       }],
       config: {
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            aadhar: {
+              type: Type.STRING,
+              description: "The 12-digit Aadhar number found in the image."
+            },
+            dob: {
+              type: Type.STRING,
+              description: "The Date of Birth in DD/MM/YYYY format."
+            }
+          },
+          required: ["aadhar", "dob"]
+        }
       }
     });
 
-    // Extract text and parse JSON
+    // Directly access the .text property
     const resultText = response.text || '{}';
-    const parsed = JSON.parse(resultText);
+    let parsed: any = {};
+    
+    try {
+      parsed = JSON.parse(resultText);
+    } catch (e) {
+      console.error("Failed to parse Gemini response as JSON", resultText);
+    }
     
     let formattedDob = null;
     if (parsed.dob && typeof parsed.dob === 'string') {
-      // Clean and validate date format DD/MM/YYYY
-      const dateMatch = parsed.dob.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+      // Robust regex to find a date pattern even if formatted slightly differently
+      const dateMatch = parsed.dob.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
       if (dateMatch) {
         const [_, day, month, year] = dateMatch;
-        // Standardize to YYYY-MM-DD for HTML5 date inputs
+        // Standardize to YYYY-MM-DD for HTML5 date input compatibility
         formattedDob = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
     }

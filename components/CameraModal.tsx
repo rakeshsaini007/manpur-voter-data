@@ -27,8 +27,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       const constraints = {
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
       };
       
@@ -37,7 +37,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        // Explicitly call play to handle browsers that block autoplay
         try {
           await videoRef.current.play();
         } catch (playErr) {
@@ -46,7 +45,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       }
       
       setError(null);
-      // Start countdown after a short delay to allow camera to stabilize
       setTimeout(() => setCountdown(3), 1000);
     } catch (err) {
       console.error("Camera access error:", err);
@@ -83,16 +81,16 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       const context = canvas.getContext('2d');
       
       if (context) {
-        // Use actual video dimensions
         const vWidth = video.videoWidth || 1280;
         const vHeight = video.videoHeight || 720;
 
         // Centered Square Crop logic
-        const size = Math.min(vWidth, vHeight) * 0.8;
+        const size = Math.min(vWidth, vHeight) * 0.85;
         const sx = (vWidth - size) / 2;
         const sy = (vHeight - size) / 2;
 
-        const targetSize = 640; 
+        // Higher resolution for better OCR
+        const targetSize = 1024; 
         canvas.width = targetSize;
         canvas.height = targetSize;
 
@@ -103,9 +101,9 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
 
         context.drawImage(video, sx, sy, size, size, 0, 0, targetSize, targetSize);
         
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        // JPEG Quality 0.85 for high detail
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         
-        // Visual shutter effect
         const shutter = document.createElement('div');
         shutter.className = 'fixed inset-0 bg-white z-[200] opacity-100 transition-opacity duration-300';
         document.body.appendChild(shutter);
@@ -124,7 +122,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-black overflow-hidden">
-      {/* Header UI */}
       <div className="safe-top bg-black/40 backdrop-blur-md px-6 py-4 flex justify-between items-center z-30">
         <button onClick={onClose} className="text-white bg-white/10 p-3 rounded-2xl active:scale-90 transition-transform">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -143,7 +140,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         </button>
       </div>
 
-      {/* Camera Viewport */}
       <div className="relative flex-grow flex items-center justify-center bg-zinc-900">
         {!error ? (
           <video 
@@ -163,11 +159,9 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
           </div>
         )}
         
-        {/* Overlay Guide */}
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 z-10">
            <div className={`w-72 h-72 sm:w-96 sm:h-96 border-4 transition-all duration-500 rounded-[3rem] shadow-[0_0_0_4000px_rgba(0,0,0,0.7)] flex items-center justify-center relative overflow-hidden ${countdown === 0 ? 'border-emerald-500 scale-105 shadow-[0_0_50px_rgba(16,185,129,0.3)]' : 'border-white/30'}`}>
               <div className="absolute inset-x-0 h-1 bg-white/40 shadow-[0_0_20px_white] animate-[scan_2s_ease-in-out_infinite]"></div>
-              {/* Corner Accents */}
               <div className="absolute top-0 left-0 w-10 h-10 border-t-8 border-l-8 border-white rounded-tl-lg"></div>
               <div className="absolute top-0 right-0 w-10 h-10 border-t-8 border-r-8 border-white rounded-tr-lg"></div>
               <div className="absolute bottom-0 left-0 w-10 h-10 border-b-8 border-l-8 border-white rounded-bl-lg"></div>
@@ -179,7 +173,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         </div>
       </div>
 
-      {/* Footer Controls */}
       <div className="safe-bottom pb-12 pt-8 bg-black flex flex-col items-center gap-6">
         <button 
           onClick={capturePhoto} 
