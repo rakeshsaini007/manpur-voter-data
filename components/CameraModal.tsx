@@ -24,11 +24,12 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
   const startCamera = async () => {
     stopStream();
     try {
+      // Use more flexible constraints for mobile compatibility
       const constraints = {
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         }
       };
       
@@ -37,18 +38,18 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        try {
-          await videoRef.current.play();
-        } catch (playErr) {
-          console.error("Video play error:", playErr);
-        }
+        // Handle iOS play promise requirement
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(e => console.error("Auto-play failed:", e));
+        };
       }
       
       setError(null);
-      setTimeout(() => setCountdown(3), 1000);
+      // Give the camera sensor 1.5 seconds to adjust white balance before starting countdown
+      setTimeout(() => setCountdown(3), 1500);
     } catch (err) {
       console.error("Camera access error:", err);
-      setError("कैमरा एक्सेस नहीं मिल सका। कृपया परमिशन चेक करें।");
+      setError("कैमरा एक्सेस नहीं मिल सका। कृपया ब्राउज़र परमिशन चेक करें।");
     }
   };
 
@@ -74,41 +75,47 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
 
   const capturePhoto = () => {
     if (isCapturing) return;
-    if (videoRef.current && canvasRef.current) {
+    
+    // Check if video is actually ready for capture
+    if (videoRef.current && videoRef.current.readyState >= 2 && canvasRef.current) {
       setIsCapturing(true);
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext('2d', { alpha: false });
       
       if (context) {
-        const vWidth = video.videoWidth || 1280;
-        const vHeight = video.videoHeight || 720;
+        // Use actual video dimensions as they might differ from constraints on mobile
+        const vWidth = video.videoWidth;
+        const vHeight = video.videoHeight;
 
-        // Wider crop to ensure all card text is captured
-        const cropWidth = vWidth * 0.95;
-        const cropHeight = vHeight * 0.95;
+        // Center crop 90% of the view
+        const cropWidth = vWidth * 0.9;
+        const cropHeight = vHeight * 0.9;
         const sx = (vWidth - cropWidth) / 2;
         const sy = (vHeight - cropHeight) / 2;
 
-        // Increased target resolution for much better OCR accuracy
-        const targetWidth = 1024;
+        // 800px width is the 'sweet spot' for mobile memory vs OCR clarity
+        const targetWidth = 800;
         const targetHeight = (targetWidth * cropHeight) / cropWidth; 
         
         canvas.width = targetWidth;
         canvas.height = targetHeight;
 
+        // Apply mirror for front camera
         if (facingMode === 'user') {
           context.translate(canvas.width, 0);
           context.scale(-1, 1);
         }
 
+        // Draw the image
         context.drawImage(video, sx, sy, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
         
-        // High quality setting (0.8) for better text clarity
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        // Export with high quality to preserve text detail
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
         
+        // Shutter effect
         const shutter = document.createElement('div');
-        shutter.className = 'fixed inset-0 bg-white z-[200] opacity-100 transition-opacity duration-300';
+        shutter.className = 'fixed inset-0 bg-white z-[200] opacity-100 transition-opacity duration-300 pointer-events-none';
         document.body.appendChild(shutter);
         
         setTimeout(() => {
@@ -120,6 +127,9 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
           }, 300);
         }, 50);
       }
+    } else {
+      // If not ready, reset countdown slightly to try again
+      setCountdown(1);
     }
   };
 
