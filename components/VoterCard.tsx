@@ -37,7 +37,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     if (cleanedVal.length === 12) {
       const check = await checkDuplicateAadhar(cleanedVal, currentVoter.voterNo);
       if (check.isDuplicate) {
-        // RESET: Clear local and parent state if duplicate found during manual entry
         setLocalAadhar('');
         onChange({ ...currentVoter, aadhar: '' });
         onDuplicateFound(check.member);
@@ -71,27 +70,41 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800;
-          const scale = Math.min(MAX_WIDTH / img.width, 1);
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
-            handlePhotoCaptured(compressedBase64);
-          }
-        };
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    // Use URL.createObjectURL for memory efficiency on mobile
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 1000; // Slightly higher resolution for OCR clarity
+      const scale = Math.min(MAX_WIDTH / img.width, 1);
+      
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Export to high-quality JPEG for OCR
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+        handlePhotoCaptured(compressedBase64);
+      }
+      
+      // Cleanup to prevent memory leaks
+      URL.revokeObjectURL(objectUrl);
+      // Reset input value to allow selecting same file again
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    img.onerror = () => {
+      console.error("Failed to load image from file");
+      URL.revokeObjectURL(objectUrl);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    img.src = objectUrl;
   };
 
   const handleManualOCR = async () => {
@@ -104,11 +117,9 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
       let newAadhar = extracted.aadhar ? formatAadhar(extracted.aadhar) : null;
       let newDob = extracted.dob || null;
 
-      // Validate Aadhar before applying to state
       if (newAadhar && newAadhar.length === 12) {
         const check = await checkDuplicateAadhar(newAadhar, voter.voterNo);
         if (check.isDuplicate) {
-          // RESET ALL: Clear local state and notify parent to clear the card data
           setLocalAadhar('');
           setLocalDob('');
           onChange({ 
@@ -116,7 +127,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
             aadhar: '', 
             dob: '', 
             calculatedAge: '', 
-            aadharPhoto: undefined // Also clear the photo if it's a duplicate card
+            aadharPhoto: undefined
           });
           onDuplicateFound(check.member);
           setIsExtracting(false);
@@ -124,7 +135,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
         }
       }
 
-      // If not duplicate, proceed with population
       let updatedVoter = { ...voter };
       if (newAadhar) {
         setLocalAadhar(newAadhar);
@@ -198,12 +208,13 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
             </div>
             
             <div className="absolute -bottom-3 -right-3 flex gap-2">
+               {/* Visually hidden input for better mobile support */}
                <input 
                 type="file" 
                 ref={fileInputRef} 
                 onChange={handleFileUpload} 
                 accept="image/*" 
-                className="hidden" 
+                style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
                />
                <button 
                 onClick={() => fileInputRef.current?.click()} 
