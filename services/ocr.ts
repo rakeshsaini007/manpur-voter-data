@@ -11,8 +11,7 @@ interface ExtractedData {
  */
 export const extractAadharData = async (base64Image: string): Promise<ExtractedData> => {
   try {
-    // ALWAYS use process.env.API_KEY for the Gemini API
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: "AIzaSyAZzNEvE-UBaXaArXU-Q8j3coYEFmwGHD0" });
     
     // Ensure we only send the raw base64 data string
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
@@ -28,7 +27,11 @@ export const extractAadharData = async (base64Image: string): Promise<ExtractedD
             }
           },
           {
-            text: "Extract the 12-digit Aadhar number (numeric only) and the Date of Birth (DOB) from this Aadhar card image. Return the DOB in DD/MM/YYYY format."
+            text: `This is an Indian Aadhar Card. Please perform the following:
+1. Extract the 12-digit Aadhar number. It is usually grouped as XXXX XXXX XXXX. Return only the 12 digits without spaces.
+2. Extract the Date of Birth (DOB). Look for keywords like "DOB", "Birth Date", "जन्म तिथि". 
+3. Return the DOB in DD/MM/YYYY format. If only the Year of Birth is found, return it as 01/01/YYYY.
+4. Ensure accuracy for these two specific fields.`
           }
         ]
       }],
@@ -39,7 +42,7 @@ export const extractAadharData = async (base64Image: string): Promise<ExtractedD
           properties: {
             aadhar: {
               type: Type.STRING,
-              description: "The 12-digit Aadhar number found in the image."
+              description: "The 12-digit Aadhar number without any spaces."
             },
             dob: {
               type: Type.STRING,
@@ -51,7 +54,6 @@ export const extractAadharData = async (base64Image: string): Promise<ExtractedD
       }
     });
 
-    // Directly access the .text property
     const resultText = response.text || '{}';
     let parsed: any = {};
     
@@ -63,7 +65,7 @@ export const extractAadharData = async (base64Image: string): Promise<ExtractedD
     
     let formattedDob = null;
     if (parsed.dob && typeof parsed.dob === 'string') {
-      // Robust regex to find a date pattern even if formatted slightly differently
+      // Handle various separators: / or - or .
       const dateMatch = parsed.dob.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
       if (dateMatch) {
         const [_, day, month, year] = dateMatch;

@@ -27,8 +27,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
       const constraints = {
         video: {
           facingMode: { ideal: facingMode },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
       };
       
@@ -84,15 +84,16 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         const vWidth = video.videoWidth || 1280;
         const vHeight = video.videoHeight || 720;
 
-        // Use a landscape-oriented crop for Aadhar
-        const cropWidth = vWidth * 0.9;
-        const cropHeight = cropWidth * 0.63; // Aadhar aspect ratio approx
+        // Wider crop to ensure all card text is captured
+        const cropWidth = vWidth * 0.95;
+        const cropHeight = vHeight * 0.95;
         const sx = (vWidth - cropWidth) / 2;
         const sy = (vHeight - cropHeight) / 2;
 
-        // Optimized resolution: 800px width fits < 50k chars in Base64 @ 0.5 quality
-        const targetWidth = 800;
-        const targetHeight = 504; 
+        // Increased target resolution for much better OCR accuracy
+        const targetWidth = 1024;
+        const targetHeight = (targetWidth * cropHeight) / cropWidth; 
+        
         canvas.width = targetWidth;
         canvas.height = targetHeight;
 
@@ -103,8 +104,8 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
 
         context.drawImage(video, sx, sy, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
         
-        // Quality 0.5 is the sweet spot for Sheets limit vs Gemini OCR readability
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+        // High quality setting (0.8) for better text clarity
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         
         const shutter = document.createElement('div');
         shutter.className = 'fixed inset-0 bg-white z-[200] opacity-100 transition-opacity duration-300';
@@ -162,15 +163,15 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
         )}
         
         <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-6 z-10">
-           <div className={`w-[85vw] h-[55vw] max-w-xl max-h-80 border-4 transition-all duration-500 rounded-[2rem] shadow-[0_0_0_4000px_rgba(0,0,0,0.7)] flex items-center justify-center relative overflow-hidden ${countdown === 0 ? 'border-emerald-500 scale-105 shadow-[0_0_50px_rgba(16,185,129,0.3)]' : 'border-white/30'}`}>
+           <div className={`w-[90vw] h-[58vw] max-w-2xl max-h-[30rem] border-4 transition-all duration-500 rounded-[2.5rem] shadow-[0_0_0_4000px_rgba(0,0,0,0.7)] flex items-center justify-center relative overflow-hidden ${countdown === 0 ? 'border-emerald-500 scale-105 shadow-[0_0_50px_rgba(16,185,129,0.3)]' : 'border-white/30'}`}>
               <div className="absolute inset-x-0 h-1 bg-white/40 shadow-[0_0_20px_white] animate-[scan_2s_ease-in-out_infinite]"></div>
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-8 border-l-8 border-white rounded-tl-lg"></div>
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-8 border-r-8 border-white rounded-tr-lg"></div>
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-8 border-l-8 border-white rounded-bl-lg"></div>
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-8 border-r-8 border-white rounded-br-lg"></div>
+              <div className="absolute top-0 left-0 w-12 h-12 border-t-8 border-l-8 border-white rounded-tl-3xl"></div>
+              <div className="absolute top-0 right-0 w-12 h-12 border-t-8 border-r-8 border-white rounded-tr-3xl"></div>
+              <div className="absolute bottom-0 left-0 w-12 h-12 border-b-8 border-l-8 border-white rounded-bl-3xl"></div>
+              <div className="absolute bottom-0 right-0 w-12 h-12 border-b-8 border-r-8 border-white rounded-br-3xl"></div>
            </div>
-           <div className="mt-12 bg-white/10 backdrop-blur-2xl px-8 py-4 rounded-3xl border border-white/10 text-center">
-              <p className="text-white text-sm font-black tracking-[0.1em] uppercase">आधार कार्ड को बॉक्स के अंदर रखें</p>
+           <div className="mt-12 bg-white/10 backdrop-blur-2xl px-10 py-5 rounded-full border border-white/10 text-center">
+              <p className="text-white text-sm font-black tracking-[0.1em] uppercase">आधार कार्ड को बॉक्स के भीतर रखें</p>
            </div>
         </div>
       </div>
@@ -186,7 +187,7 @@ const CameraModal: React.FC<CameraModalProps> = ({ onCapture, onClose }) => {
             {isCapturing && <div className="w-10 h-10 border-4 border-black border-t-transparent animate-spin rounded-full" />}
           </div>
         </button>
-        <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">Smart OCR Detection Active</p>
+        <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.3em]">Smart OCR Precision Mode</p>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
