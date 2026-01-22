@@ -1,5 +1,6 @@
 
-import { useRef, useState, useEffect } from 'react';
+// Import React to fix "Cannot find namespace 'React'" error when using React.FC.
+import React, { useRef, useState, useEffect } from 'react';
 
 interface CameraModalProps {
   onCapture: (base64: string) => void;

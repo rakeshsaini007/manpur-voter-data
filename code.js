@@ -34,8 +34,8 @@ function handleGetMetadata() {
   const data = sheet.getDataRange().getValues();
   
   const boothSet = new Set();
-  const wardMap = {}; // booth -> Set(wards)
-  const houseMap = {}; // booth_ward -> Set(houses)
+  const wardMap = {}; 
+  const houseMap = {}; 
 
   for (let i = 1; i < data.length; i++) {
     const booth = String(data[i][0] || '').trim();
@@ -107,9 +107,11 @@ function handleSearchByName(query) {
     const row = data[i];
     const name = String(row[4] || '').toLowerCase();
     const rel = String(row[5] || '').toLowerCase();
-    if (name.indexOf(q) !== -1 || rel.indexOf(q) !== -1) results.push(mapRowToVoter(row, i + 1));
+    if (name.indexOf(q) !== -1 || rel.indexOf(q) !== -1) {
+      results.push(mapRowToVoter(row, i + 1));
+    }
   }
-  return createJsonResponse({ success: true, data: [] });
+  return createJsonResponse({ success: true, data: results });
 }
 
 function mapRowToVoter(row, rowIdx) {
@@ -169,8 +171,6 @@ function handleSave(voters) {
       }
     }
     
-    // Safety truncation at 50k to prevent script crashes, 
-    // but the frontend is now optimized to stay well below this.
     let photoData = v.aadharPhoto || '';
     if (photoData.length > 50000) {
        photoData = photoData.substring(0, 49990);
