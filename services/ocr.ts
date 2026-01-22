@@ -11,7 +11,7 @@ interface ExtractedData {
  */
 export const extractAadharData = async (base64Image: string): Promise<ExtractedData> => {
   try {
-    const ai = new GoogleGenAI({ apiKey: "AIzaSyAZzNEvE-UBaXaArXU-Q8j3coYEFmwGHD0" });
+    const ai = new GoogleGenAI({ apiKey: "AIzaSyDo0hVOtClkyq_DT9VIxOsp-I5jE_l1ahM" });
     
     // Ensure we only send the raw base64 data string
     const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
