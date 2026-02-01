@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { VoterRecord } from '../types.ts';
 import { calculateAgeAsOf2026, formatAadhar } from '../utils/calculations.ts';
 import { checkDuplicateAadhar } from '../services/api.ts';
-import { extractAadharData } from '../services/ocr.ts';
 import CameraModal from './CameraModal.tsx';
 
 interface VoterCardProps {
@@ -18,7 +17,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
   const [localDob, setLocalDob] = useState(voter.dob || '');
   const [showCamera, setShowCamera] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -30,11 +28,25 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, [field]: value });
   };
 
-  const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
+  const performAadharUpdate = async (val: string, currentVoter: VoterRecord) => {
     const cleanedVal = formatAadhar(val);
     setLocalAadhar(cleanedVal);
-    onChange({ ...voter, aadhar: cleanedVal });
+    
+    if (cleanedVal.length === 12) {
+      const check = await checkDuplicateAadhar(cleanedVal, currentVoter.voterNo);
+      if (check.isDuplicate) {
+        setLocalAadhar('');
+        onChange({ ...currentVoter, aadhar: '' });
+        onDuplicateFound(check.member);
+        return;
+      }
+    }
+    
+    onChange({ ...currentVoter, aadhar: cleanedVal });
+  };
+
+  const handleAadharChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    performAadharUpdate(e.target.value, voter);
   };
 
   const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,61 +56,8 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     onChange({ ...voter, dob: val, calculatedAge: age });
   };
 
-  // The actual OCR Logic
-  const runOCR = async (imageBuffer: string) => {
-    if (isExtracting) return;
-    setIsExtracting(true);
-    
-    // Tiny delay to ensure UI handles the image update first (good for mobile memory)
-    await new Promise(r => setTimeout(r, 200));
-
-    try {
-      const extracted = await extractAadharData(imageBuffer);
-      
-      let newAadhar = extracted.aadhar ? formatAadhar(extracted.aadhar) : null;
-      let newDob = extracted.dob || null;
-
-      if (newAadhar && newAadhar.length === 12) {
-        const check = await checkDuplicateAadhar(newAadhar, voter.voterNo);
-        if (check.isDuplicate) {
-          setLocalAadhar('');
-          setLocalDob('');
-          onChange({ 
-            ...voter, 
-            aadhar: '', 
-            dob: '', 
-            calculatedAge: '', 
-            aadharPhoto: undefined
-          });
-          onDuplicateFound(check.member);
-          setIsExtracting(false);
-          return;
-        }
-      }
-
-      let updatedVoter = { ...voter, aadharPhoto: imageBuffer };
-      if (newAadhar) {
-        setLocalAadhar(newAadhar);
-        updatedVoter.aadhar = newAadhar;
-      }
-      if (newDob) {
-        setLocalDob(newDob);
-        updatedVoter.dob = newDob;
-        updatedVoter.calculatedAge = calculateAgeAsOf2026(newDob);
-      }
-
-      onChange(updatedVoter);
-    } catch (err) {
-      console.error("OCR Extraction failed:", err);
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
   const handlePhotoCaptured = (base64: string) => {
-    // Save photo and auto-trigger OCR
     onChange({ ...voter, aadharPhoto: base64 });
-    runOCR(base64);
   };
 
   const handleDeletePhoto = (e: React.MouseEvent) => {
@@ -115,8 +74,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
     
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      // 800px is optimal for Gemini Flash while keeping mobile payload small
-      const MAX_WIDTH = 800; 
+      const MAX_WIDTH = 1000;
       const scale = Math.min(MAX_WIDTH / img.width, 1);
       
       canvas.width = img.width * scale;
@@ -125,8 +83,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        // 0.7 quality is safe for mobile browsers and still very sharp for OCR
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
         handlePhotoCaptured(compressedBase64);
       }
       
@@ -144,21 +101,6 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
 
   return (
     <div className="bg-white rounded-[2.5rem] premium-shadow overflow-hidden border border-slate-50 hover:border-indigo-100 transition-all duration-500 flex flex-col h-full relative group">
-      {/* AI Extraction Overlay */}
-      {isExtracting && (
-        <div className="absolute inset-0 z-50 bg-indigo-950/80 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-300">
-          <div className="relative mb-6">
-            <div className="w-20 h-20 border-4 border-indigo-400/30 rounded-full" />
-            <div className="absolute inset-0 border-4 border-white rounded-full border-t-transparent animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <svg className="w-8 h-8 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-            </div>
-          </div>
-          <h4 className="text-white font-black text-xl tracking-tight uppercase">AI विश्लेषण जारी है</h4>
-          <p className="text-indigo-200 text-sm mt-2 font-medium">कृपया प्रतीक्षा करें, आधार से डेटा निकाला जा रहा है...</p>
-        </div>
-      )}
-
       {/* Card Header */}
       <div className="bg-gradient-to-r from-indigo-700 to-indigo-900 px-6 py-4 flex justify-between items-center shrink-0">
         <div className="flex items-center gap-3">
@@ -172,7 +114,7 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
             {voter.isNew ? 'नया' : 'डेटाबेस'}
           </span>
           <button onClick={() => onDeleteRequest(voter)} className="text-white/40 hover:text-rose-400 transition-colors p-1.5 hover:bg-white/10 rounded-lg">
-            <svg className="h-5 v-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>
         </div>
       </div>
@@ -221,12 +163,14 @@ const VoterCard: React.FC<VoterCardProps> = ({ voter, onChange, onDeleteRequest,
                <button 
                 onClick={() => fileInputRef.current?.click()} 
                 className="w-10 h-10 bg-slate-800 text-white rounded-2xl flex items-center justify-center shadow-lg hover:bg-slate-900 active:scale-90 transition-all border-4 border-white"
+                title="फोटो अपलोड करें"
                >
                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
                </button>
                <button 
                 onClick={() => setShowCamera(true)} 
                 className="w-10 h-10 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg hover:bg-indigo-700 active:scale-90 transition-all border-4 border-white"
+                title="कैमरा खोलें"
                >
                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                </button>

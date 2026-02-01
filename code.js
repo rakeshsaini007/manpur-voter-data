@@ -18,6 +18,7 @@ function onOpen() {
     .addItem('🌐 Open Web Portal', 'showUrlDialog')
     .addSeparator()
     .addItem('📊 View Summary', 'handleGetMetadata')
+    .addItem('❌ Disconnect Instructions', 'showDisconnectInstructions')
     .addToUi();
 }
 
@@ -27,18 +28,45 @@ function onOpen() {
 function showUrlDialog() {
   const url = ScriptApp.getService().getUrl();
   const html = `
-    <div style="font-family: sans-serif; padding: 20px; text-align: center;">
-      <h3 style="color: #4f46e5;">Election Portal Link</h3>
-      <p style="font-size: 14px; color: #64748b;">Copy this link to use the mobile app:</p>
-      <input type="text" value="${url}" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #e2e8f0; border-radius: 8px;" readonly onclick="this.select();">
-      <p style="font-size: 11px; color: #94a3b8;">Click the input to select the URL.</p>
-      <button onclick="google.script.host.close()" style="margin-top: 15px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer;">Close</button>
+    <div style="font-family: sans-serif; padding: 25px; text-align: center; background-color: #fcfcfd;">
+      <div style="margin-bottom: 20px;">
+        <svg style="width: 48px; height: 48px; color: #4f46e5;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+      </div>
+      <h3 style="color: #1e1b4b; margin: 0 0 10px 0; font-size: 18px;">Portal Connection Link</h3>
+      <p style="font-size: 14px; color: #64748b; line-height: 1.5;">Copy and open this link on your mobile phone to use the portal:</p>
+      <div style="position: relative; margin: 20px 0;">
+        <input type="text" value="${url}" style="width: 90%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 13px; color: #1e293b; background: #fff;" readonly onclick="this.select();">
+      </div>
+      <p style="font-size: 11px; color: #94a3b8; margin-top: -10px;">(Click above to select URL)</p>
+      <button onclick="google.script.host.close()" style="margin-top: 25px; width: 100%; padding: 12px; background: #4f46e5; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);">Close Dialog</button>
     </div>
   `;
   const userInterface = HtmlService.createHtmlOutput(html)
     .setWidth(400)
-    .setHeight(250);
-  SpreadsheetApp.getUi().showModalDialog(userInterface, 'Portal Connection');
+    .setHeight(320);
+  SpreadsheetApp.getUi().showModalDialog(userInterface, 'Election Portal Pro');
+}
+
+/**
+ * Shows instructions on how to close the link/disconnect.
+ */
+function showDisconnectInstructions() {
+  const html = `
+    <div style="font-family: sans-serif; padding: 25px; background-color: #fff5f5;">
+      <h3 style="color: #c53030; margin: 0 0 15px 0;">How to Close the Link</h3>
+      <ol style="font-size: 14px; color: #4a5568; line-height: 1.6; padding-left: 20px;">
+        <li>Go to <b>Deploy</b> > <b>Manage deployments</b>.</li>
+        <li>Select your active deployment.</li>
+        <li>Click the <b>Archive</b> icon or delete the deployment.</li>
+      </ol>
+      <p style="font-size: 13px; color: #718096; margin-top: 15px;">Note: Archiving will stop the Web App URL from functioning immediately.</p>
+      <button onclick="google.script.host.close()" style="margin-top: 20px; width: 100%; padding: 10px; background: #c53030; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Got it</button>
+    </div>
+  `;
+  const userInterface = HtmlService.createHtmlOutput(html)
+    .setWidth(350)
+    .setHeight(280);
+  SpreadsheetApp.getUi().showModalDialog(userInterface, 'Disconnecting Portal');
 }
 
 function doGet(e) {
