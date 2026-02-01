@@ -8,6 +8,39 @@ const SHEET_NAME = 'Sheet1';
 const DELETED_SHEET_NAME = 'Deleted';
 const NEW_VOTERS_SHEET_NAME = 'NewVoters';
 
+/**
+ * Adds a custom menu to the Google Sheet when opened.
+ * This satisfies the request to have a button/menu in the sheet.
+ */
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('🚀 Election Pro')
+    .addItem('🌐 Open Web Portal', 'showUrlDialog')
+    .addSeparator()
+    .addItem('📊 View Summary', 'handleGetMetadata')
+    .addToUi();
+}
+
+/**
+ * Shows a dialog with the Web App URL.
+ */
+function showUrlDialog() {
+  const url = ScriptApp.getService().getUrl();
+  const html = `
+    <div style="font-family: sans-serif; padding: 20px; text-align: center;">
+      <h3 style="color: #4f46e5;">Election Portal Link</h3>
+      <p style="font-size: 14px; color: #64748b;">Copy this link to use the mobile app:</p>
+      <input type="text" value="${url}" style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #e2e8f0; border-radius: 8px;" readonly onclick="this.select();">
+      <p style="font-size: 11px; color: #94a3b8;">Click the input to select the URL.</p>
+      <button onclick="google.script.host.close()" style="margin-top: 15px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer;">Close</button>
+    </div>
+  `;
+  const userInterface = HtmlService.createHtmlOutput(html)
+    .setWidth(400)
+    .setHeight(250);
+  SpreadsheetApp.getUi().showModalDialog(userInterface, 'Portal Connection');
+}
+
 function doGet(e) {
   const action = e.parameter.action;
   if (action === 'search') return handleSearch(e.parameter.booth, e.parameter.ward, e.parameter.house);

@@ -91,6 +91,9 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
+  /**
+   * Clears all state and returns to the initial search screen.
+   */
   const clearResults = () => {
     setVoters([]);
     setSearchTriggered(false);
@@ -98,6 +101,18 @@ const App: React.FC = () => {
     setWard('');
     setHouse('');
     setNameQuery('');
+    showToast('वापस होम पर', 'info');
+  };
+
+  /**
+   * Resets the entire application, including the connection to the Google Sheet.
+   * This is effectively "Closing the link".
+   */
+  const handleExitApp = () => {
+    if (confirm("क्या आप कनेक्शन बंद (Disconnect) करना चाहते हैं?")) {
+      localStorage.removeItem('voter_script_url');
+      window.location.reload();
+    }
   };
 
   const updateVoter = useCallback((updated: VoterRecord) => {
@@ -197,14 +212,25 @@ const App: React.FC = () => {
         
         <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col gap-10 relative z-10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center space-x-5 cursor-pointer group" onClick={clearResults}>
-              <div className="p-4 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 group-hover:scale-105 transition-transform">
-                <svg className="w-8 h-8 text-indigo-300" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 12V8h2v4H9zm0 2h2v2H9v-2z" /></svg>
+            <div className="flex items-center justify-between w-full md:w-auto">
+              <div className="flex items-center space-x-5 cursor-pointer group" onClick={clearResults}>
+                <div className="p-4 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 group-hover:scale-105 transition-transform">
+                  <svg className="w-8 h-8 text-indigo-300" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 12V8h2v4H9zm0 2h2v2H9v-2z" /></svg>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-black tracking-tight leading-none">ELECTION PRO</h1>
+                  <p className="text-indigo-400 text-xs font-bold tracking-[0.2em] uppercase mt-1 opacity-80">Premium Management Suite</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-3xl font-black tracking-tight leading-none">ELECTION PRO</h1>
-                <p className="text-indigo-400 text-xs font-bold tracking-[0.2em] uppercase mt-1 opacity-80">Premium Management Suite</p>
-              </div>
+              
+              {/* EXIT / DISCONNECT BUTTON */}
+              <button 
+                onClick={handleExitApp}
+                className="md:hidden p-3 bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-2xl hover:bg-rose-500 hover:text-white transition-all active:scale-95 flex items-center gap-2"
+                title="Disconnect Link"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+              </button>
             </div>
 
             <div className="flex items-center gap-3 w-full md:w-auto">
@@ -227,6 +253,15 @@ const App: React.FC = () => {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </button>
               </form>
+              
+              {/* DESKTOP EXIT BUTTON */}
+              <button 
+                onClick={handleExitApp}
+                className="hidden md:flex p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl hover:bg-rose-600 hover:text-white transition-all active:scale-95 flex items-center gap-3 font-bold text-sm tracking-widest uppercase"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                Exit
+              </button>
             </div>
           </div>
 
@@ -306,12 +341,20 @@ const App: React.FC = () => {
             </div>
             <h2 className="text-3xl font-black text-slate-800">कोई डेटा नहीं मिला!</h2>
             <p className="text-slate-500 mt-4 font-medium">चयनित विवरण के लिए कोई रिकॉर्ड उपलब्ध नहीं है। आप नया सदस्य जोड़ सकते हैं।</p>
-            <button 
-              onClick={addNewMember} 
-              className="mt-10 px-10 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100"
-            >
-              नया सदस्य जोड़ें
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
+              <button 
+                onClick={addNewMember} 
+                className="px-10 py-4 bg-indigo-600 text-white font-black rounded-2xl hover:bg-indigo-700 transition-all active:scale-95 shadow-lg shadow-indigo-100"
+              >
+                नया सदस्य जोड़ें
+              </button>
+              <button 
+                onClick={clearResults} 
+                className="px-10 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+              >
+                वापस जाएं
+              </button>
+            </div>
           </div>
         ) : voters.length > 0 && (
           <div className="space-y-8 pb-32">
@@ -323,15 +366,23 @@ const App: React.FC = () => {
                   <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">{voters.length} कुल रिकॉर्ड पाए गए</p>
                 </div>
               </div>
-              {booth && house && (
+              <div className="flex items-center gap-3 w-full sm:w-auto">
                 <button 
-                  onClick={addNewMember} 
-                  className="flex items-center gap-3 px-6 py-3 bg-indigo-50 text-indigo-700 font-black rounded-2xl border border-indigo-100 hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
+                  onClick={clearResults}
+                  className="flex-grow sm:flex-grow-0 px-6 py-3 bg-slate-100 text-slate-500 font-black rounded-2xl border border-slate-200 hover:bg-slate-200 transition-all active:scale-95"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
-                  सदस्य जोड़ें
+                  सूची बंद करें
                 </button>
-              )}
+                {booth && house && (
+                  <button 
+                    onClick={addNewMember} 
+                    className="flex-grow sm:flex-grow-0 flex items-center gap-3 px-6 py-3 bg-indigo-50 text-indigo-700 font-black rounded-2xl border border-indigo-100 hover:bg-indigo-100 transition-all active:scale-95 shadow-sm"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
+                    सदस्य जोड़ें
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
